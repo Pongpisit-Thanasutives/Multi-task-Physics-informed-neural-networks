@@ -3,6 +3,11 @@ from sympy import *
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
 
+### Model-related imports ###
+import torch
+from torch import nn
+from nupic.torch.modules import (KWinners, SparseWeights, Flatten, rezero_weights, update_boost_strength)
+
 ## Saving ###
 def pickle_save(obj, path):
     with open(path, 'wb') as f:
@@ -49,3 +54,27 @@ def string2int(s):
     for i in range(len(s)):
         out += ord(s[i])
     return out
+
+### Model-related code base ###
+class CrossStich(nn.Module):
+    def __init__(self,):
+        super(CrossStich, self).__init__()
+        self.transform = nn.Parameter(data=torch.eye(2), requires_grad=True)
+    def forward(self, input_1, input_2):
+        return self.transform[0][0]*input_1 + self.transform[0][1]*input_2, self.transform[1][0]*input_1 + self.transform[1][1]*input_2
+    
+def sparse_layer(in_dim, out_dim, sparsity):
+    return SparseWeights(nn.Linear(in_dim, out_dim), sparsity=sparsity)
+
+class Swish(nn.Module):
+    def __init__(self,):
+        super(Swish, self).__init__()
+    
+    def forward(self, x):
+        return x*torch.sigmoid(x)
+
+def evaluate_network_mse(network, X_star, u_star):
+    return ((network(X_star[:, 0:1], X_star[:, 1:2]).detach() - u_star)**2).mean().item()
+
+def evaluate_ladder_network_mse(network, X_star, u_star):
+    return ((network(X_star[:, 0:1], X_star[:, 1:2])[0].detach() - u_star)**2).mean().item()
