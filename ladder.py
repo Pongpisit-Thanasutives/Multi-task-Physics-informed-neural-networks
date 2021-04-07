@@ -107,7 +107,7 @@ class DecoderLayer(nn.Module):
             self.V = torch.nn.Linear(d_in, d_out, bias=bias)
             torch.nn.init.xavier_uniform_(self.V.weight)
             if bias:
-                self.linear.bias.data.fill_(0.01)
+                self.V.bias.data.fill_(0.01)
 
         # buffer for hat_z_l to be used for cost calculation
         self.buffer = None

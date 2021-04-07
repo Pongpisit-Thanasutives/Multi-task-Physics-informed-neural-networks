@@ -6,7 +6,7 @@ from sympy.core import evaluate
 ### Model-related imports ###
 import torch
 from torch import nn
-from nupic.torch.modules import (KWinners, SparseWeights, Flatten, rezero_weights, update_boost_strength)
+# from nupic.torch.modules import (KWinners, SparseWeights, Flatten, rezero_weights, update_boost_strength)
 
 ## Saving ###
 def pickle_save(obj, path):
