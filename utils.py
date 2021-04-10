@@ -6,7 +6,8 @@ from sympy.core import evaluate
 ### Model-related imports ###
 import torch
 from torch import nn
-# from nupic.torch.modules import (KWinners, SparseWeights, Flatten, rezero_weights, update_boost_strength)
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
 
 ## Saving ###
 def pickle_save(obj, path):
@@ -54,6 +55,28 @@ def string2int(s):
     for i in range(len(s)):
         out += ord(s[i])
     return out
+
+def get_dataloader(X_train, y_train, bs):
+    return DataLoader(TrainingDataset(X_train, y_train), batch_size=bs)
+
+class TrainingDataset(Dataset):
+    def __init__(self, X_train, y_train):
+        super(TrainingDataset, self).__init__()
+        self.X = X_train
+        self.y = y_train
+        
+    def __getitem__(self, index):
+        return self.X[index], self.y[index]
+
+    def __len__(self):
+        return self.X.shape[0]
+    
+class LadderLoss(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        
+    def forward(self, outputs, labels):
+        return F.mse_loss(outputs[0], labels) + outputs[1]
 
 ### Model-related code base ###
 class CrossStich(nn.Module):
