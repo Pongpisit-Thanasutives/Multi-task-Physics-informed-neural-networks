@@ -56,6 +56,9 @@ def string2int(s):
         out += ord(s[i])
     return out
 
+def is_nan(a_tensor):
+    return torch.isnan(a_tensor).any().item()
+
 def get_dataloader(X_train, y_train, bs):
     return DataLoader(TrainingDataset(X_train, y_train), batch_size=bs)
 
@@ -77,6 +80,18 @@ class LadderLoss(nn.Module):
         
     def forward(self, outputs, labels):
         return F.mse_loss(outputs[0], labels) + outputs[1]
+
+class LadderUncertLoss(nn.Module):
+    def __init__(self, n_task):
+        super().__init__()
+        self.log_vars = nn.Parameter(torch.zeros((n_task)))
+ 
+    def forward(self, outputs, labels):
+        weights = torch.exp(self.log_vars)
+        mse_loss = F.mse_loss(outputs[0], labels).unsqueeze(0)
+        unsup_loss = outputs[1].unsqueeze(0)
+        losses = torch.cat([mse_loss, unsup_loss])
+        return weights.dot(losses)
 
 ### Model-related code base ###
 class CrossStich(nn.Module):
