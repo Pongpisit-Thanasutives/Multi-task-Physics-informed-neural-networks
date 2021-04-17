@@ -7,6 +7,7 @@ from sympy.core import evaluate
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset
 
 ## Saving ###
@@ -54,6 +55,12 @@ def string2int(s):
     out = 0
     for i in range(len(s)):
         out += ord(s[i])
+    return out
+
+def dimension_slicing(a_tensor):
+    c = a_tensor.shape[-1]
+    out = []
+    for i in range(1, c+1): out.append(a_tensor[:, i-1:i])
     return out
 
 def is_nan(a_tensor):
@@ -106,14 +113,17 @@ def sparse_layer(in_dim, out_dim, sparsity):
 
 # This should be the activation function for the selector network. The module outputs a feature masking tensor.
 class ThresholdSoftmax(nn.Module):
-    def __init__(self, th=0.5):
-        super().__init__()
-        self.th = nn.Parameter(torch.tensor([th]).float())
+    def __init__(self, th=0.1):
+        super(ThresholdSoftmax, self).__init__()
         self.sm = nn.Softmax(dim=-1)
+        self.th = th
+        self.prob = None
     def forward(self, inn):
-        imm = self.sm(inn)
-        imm = torch.where(imm > self.th, imm, torch.FloatTensor([0.0]))
-        return imm
+        self.prob = self.sm(inn).mean(dim=0)
+        thres = self.prob[torch.argsort(self.prob, descending=True)[3]]
+        self.prob = torch.where(self.prob > thres, self.prob, torch.tensor([self.th]).float()) 
+        samples = torch.sort(torch.multinomial(self.prob, 3))[0]
+        return samples
 
 class Swish(nn.Module):
     def __init__(self,):
@@ -121,6 +131,18 @@ class Swish(nn.Module):
     
     def forward(self, x):
         return x*torch.sigmoid(x)
+
+def simple_solver_model(hidden_nodes):
+    model = nn.Sequential(nn.Linear(2, hidden_nodes),
+                        nn.Tanh(),
+                        nn.Linear(hidden_nodes, hidden_nodes),
+                        nn.Tanh(),
+                        nn.Linear(hidden_nodes, hidden_nodes),
+                        nn.Tanh(),
+                        nn.Linear(hidden_nodes, hidden_nodes),
+                        nn.Tanh(),
+                        nn.Linear(hidden_nodes, 1))
+    return model 
 
 def evaluate_network_mse(network, X_star, u_star):
     return ((network(X_star[:, 0:1], X_star[:, 1:2]).detach() - u_star)**2).mean().item()
