@@ -1,3 +1,5 @@
+import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 import pickle
 from sympy import *
 from sympy.parsing.sympy_parser import parse_expr
@@ -9,6 +11,9 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset
+
+import numpy as np
+from sklearn.metrics import *
 
 ## Saving ###
 def pickle_save(obj, path):
@@ -56,6 +61,11 @@ def string2int(s):
     for i in range(len(s)):
         out += ord(s[i])
     return out
+
+def convert_listoftuples_dict(tup, di={}):
+    for a, b in tup:
+        di.setdefault(a, b)
+    return di
 
 def dimension_slicing(a_tensor):
     c = a_tensor.shape[-1]
@@ -149,3 +159,38 @@ def evaluate_network_mse(network, X_star, u_star):
 
 def evaluate_ladder_network_mse(network, X_star, u_star):
     return ((network(X_star[:, 0:1], X_star[:, 1:2])[0].detach() - u_star)**2).mean().item()
+
+class SklearnModel:
+    def __init__(self, model, X_train=None, y_train=None, feature_names=None):
+        self.model = model
+        self.feature_names = feature_names
+        self.is_train = False
+        self.X_train_shape = None 
+        if X_train is not None and y_train is not None:
+            self.train(X_train, y_train)
+        self.feature_importances = None
+    def train(self, X_np, y_np):
+        if self.is_train:
+            print("This model was already trained")
+        else:
+            self.model.fit(X_np, y_np)
+            self.X_train_shape = X_np.shape
+            print("Done training")
+            print("R score:", self.model.score(X_np, y_np))
+    def feature_importance(self, feature_names=None):
+        if feature_names is not None:
+            self.feature_names = feature_names
+        if self.feature_names is None:
+            self.feature_names = [str(i) for i in range((self.X_train_shape[1]))]
+        ranking = np.argsort(self.model.feature_importances_)[::-1]
+        total = sum(self.model.feature_importances_)
+        out = []
+        for i in ranking: 
+            print((self.feature_names[i], self.model.feature_importances_[i]/total))
+            out.append((self.feature_names[i], self.model.feature_importances_[i]/total))
+        self.feature_importances = convert_listoftuples_dict(out)
+        return self.feature_importances
+    def test(self, X_test, y_test, metric=None):
+        y_pred = self.model.predict(X_test)
+        if not metric: return mean_squared_error(y_test, y_pred) 
+        else: return metric(y_test, y_pred)
