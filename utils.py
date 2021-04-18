@@ -76,6 +76,9 @@ def dimension_slicing(a_tensor):
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
 
+def to_tensor(arr, g=True):
+    return torch.tensor(arr).float().requires_grad_(g)
+
 def get_dataloader(X_train, y_train, bs):
     return DataLoader(TrainingDataset(X_train, y_train), batch_size=bs)
 
@@ -160,6 +163,23 @@ def evaluate_network_mse(network, X_star, u_star):
 def evaluate_ladder_network_mse(network, X_star, u_star):
     return ((network(X_star[:, 0:1], X_star[:, 1:2])[0].detach() - u_star)**2).mean().item()
 
+class TorchMLP(nn.Module):
+    def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, final_activation=None):
+        super(TorchMLP, self).__init__()
+        self.model  = nn.ModuleList()
+        for i in range(len(dimensions)-1):
+            self.model.append(nn.Linear(dimensions[i], dimensions[i+1], bias=bias))
+            if i!=len(dimensions)-2:
+                self.model.append(activation_function())
+        if final_activation:
+            self.model.append(final_activation())
+
+    def forward(self, x):
+        # ModuleList can act as an iterable, or be indexed using ints
+        for i, l in enumerate(self.model):
+            x = l(x)
+        return x
+
 class SklearnModel:
     def __init__(self, model, X_train=None, y_train=None, feature_names=None):
         self.model = model
@@ -176,7 +196,7 @@ class SklearnModel:
             self.model.fit(X_np, y_np)
             self.X_train_shape = X_np.shape
             print("Done training")
-            print("R score:", self.model.score(X_np, y_np))
+            print("Training MSE:", mean_squared_error(self.model.predict(X_np), y_np))
     def feature_importance(self, feature_names=None):
         if feature_names is not None:
             self.feature_names = feature_names
