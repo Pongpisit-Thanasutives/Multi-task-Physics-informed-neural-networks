@@ -214,3 +214,8 @@ class SklearnModel:
         y_pred = self.model.predict(X_test)
         if not metric: return mean_squared_error(y_test, y_pred) 
         else: return metric(y_test, y_pred)
+
+def change_learning_rate(a_optimizer):
+    for g in a_optimizer.param_groups:
+        g['lr'] = 0.001
+    return a_optimizer
