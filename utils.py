@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from sklearn.metrics import *
 
+import pcgrad
+
 ## Saving ###
 def pickle_save(obj, path):
     with open(path, 'wb') as f:
@@ -95,11 +97,13 @@ class TrainingDataset(Dataset):
         return self.X.shape[0]
     
 class LadderLoss(nn.Module):
-    def __init__(self,):
+    def __init__(self, return_list=False):
         super().__init__()
+        self.return_list = return_list
         
     def forward(self, outputs, labels):
-        return F.mse_loss(outputs[0], labels) + outputs[1]
+        if not self.return_list: return F.mse_loss(outputs[0], labels) + outputs[1]
+        return [F.mse_loss(outputs[0], labels), outputs[1]]
 
 class LadderUncertLoss(nn.Module):
     def __init__(self, n_task):
@@ -173,6 +177,12 @@ class TorchMLP(nn.Module):
                 self.model.append(activation_function())
         if final_activation:
             self.model.append(final_activation())
+        self.model.apply(self.xavier_init)
+
+    def xavier_init(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
 
     def forward(self, x):
         # ModuleList can act as an iterable, or be indexed using ints
@@ -219,3 +229,25 @@ def change_learning_rate(a_optimizer):
     for g in a_optimizer.param_groups:
         g['lr'] = 0.001
     return a_optimizer
+
+def pcgrad_update(model, model_optimizer, losses):
+    updated_grads = []
+    
+    for i in range(2):
+        model_optimizer.zero_grad()
+        losses[i].backward(retain_graph=True)
+
+        g_task = []
+        for param in model.parameters():
+            if param.grad is not None:
+                g_task.append(Variable(param.grad.clone(), requires_grad=False))
+            else:
+                g_task.append(Variable(torch.zeros(param.shape), requires_grad=False))
+        # appending the gradients from each task
+        updated_grads.append(g_task)
+
+    updated_grads = list(pcgrad.pc_grad_update(updated_grads))[0]
+    for idx, param in enumerate(model.parameters()): 
+        param.grad = (updated_grads[0][idx]+updated_grads[1][idx])
+
+    return model, model_optimizer, sum(losses)
