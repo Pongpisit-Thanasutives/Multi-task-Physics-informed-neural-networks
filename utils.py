@@ -81,6 +81,13 @@ def is_nan(a_tensor):
 def to_tensor(arr, g=True):
     return torch.tensor(arr).float().requires_grad_(g)
 
+def minmax_normalize(features):
+    mini = torch.min(features, axis=0)[0]
+    maxi = torch.max(features, axis=0)[0]
+    features_std = (features-features.min(axis=0)[0]) / (features.max(axis=0)[0]-features.min(axis=0)[0])
+    features_std = features_std * (maxi-mini) + mini
+    return features_std
+
 def get_dataloader(X_train, y_train, bs):
     return DataLoader(TrainingDataset(X_train, y_train), batch_size=bs)
 
@@ -168,14 +175,20 @@ def evaluate_ladder_network_mse(network, X_star, u_star):
     return ((network(X_star[:, 0:1], X_star[:, 1:2])[0].detach() - u_star)**2).mean().item()
 
 class TorchMLP(nn.Module):
-    def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, final_activation=None):
+    def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, bn=None, final_activation=None):
         super(TorchMLP, self).__init__()
         self.model  = nn.ModuleList()
+        # Can I also use the LayerNorm with elementwise_affine=True
+        # This should be a callable module.
+        self.activation_function = activation_function()
+        self.bn = bn
         for i in range(len(dimensions)-1):
             self.model.append(nn.Linear(dimensions[i], dimensions[i+1], bias=bias))
-            if i!=len(dimensions)-2:
-                self.model.append(activation_function())
-        if final_activation:
+            if self.bn is not None and i!=len(dimensions)-2:
+                self.model.append(self.bn(dimensions[i+1]))
+            if i==len(dimensions)-2: break
+            self.model.append(activation_function())
+        if final_activation is not None:
             self.model.append(final_activation())
         self.model.apply(self.xavier_init)
 
