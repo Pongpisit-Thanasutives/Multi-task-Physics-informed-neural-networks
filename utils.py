@@ -81,6 +81,9 @@ def is_nan(a_tensor):
 def to_tensor(arr, g=True):
     return torch.tensor(arr).float().requires_grad_(g)
 
+def to_numpy(a_tensor):
+    return a_tensor.detach().numpy()
+
 def minmax_normalize(features):
     mini = torch.min(features, axis=0)[0]
     maxi = torch.max(features, axis=0)[0]
