@@ -178,17 +178,21 @@ def evaluate_ladder_network_mse(network, X_star, u_star):
     return ((network(X_star[:, 0:1], X_star[:, 1:2])[0].detach() - u_star)**2).mean().item()
 
 class TorchMLP(nn.Module):
-    def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, bn=None, final_activation=None):
+    def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, bn=None, dropout=None, inp_drop=False, final_activation=None):
         super(TorchMLP, self).__init__()
         self.model  = nn.ModuleList()
         # Can I also use the LayerNorm with elementwise_affine=True
         # This should be a callable module.
         self.activation_function = activation_function()
         self.bn = bn
+        if dropout is not None and inp_drop: self.inp_dropout = dropout
+        else: self.inp_dropout = None
         for i in range(len(dimensions)-1):
             self.model.append(nn.Linear(dimensions[i], dimensions[i+1], bias=bias))
             if self.bn is not None and i!=len(dimensions)-2:
                 self.model.append(self.bn(dimensions[i+1]))
+                if dropout is not None:
+                    self.model.append(dropout)
             if i==len(dimensions)-2: break
             self.model.append(activation_function())
         if final_activation is not None:
@@ -201,8 +205,10 @@ class TorchMLP(nn.Module):
             m.bias.data.fill_(0.01)
 
     def forward(self, x):
-        # ModuleList can act as an iterable, or be indexed using ints
-        for i, l in enumerate(self.model):
+        if hasattr(self, 'inp_dropout'):
+            if self.inp_dropout is not None:
+                x = self.inp_dropout(x)
+        for i, l in enumerate(self.model): 
             x = l(x)
         return x
 
