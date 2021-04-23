@@ -91,16 +91,19 @@ def minmax_normalize(features):
     features_std = features_std * (maxi-mini) + mini
     return features_std
 
-def get_dataloader(X_train, y_train, bs):
-    return DataLoader(TrainingDataset(X_train, y_train), batch_size=bs)
+def get_dataloader(X_train, y_train, bs, N_sup=2000):
+    return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
 
 class TrainingDataset(Dataset):
-    def __init__(self, X_train, y_train):
+    def __init__(self, X_train, y_train, N_sup=2000):
         super(TrainingDataset, self).__init__()
         self.X = X_train
         self.y = y_train
+        self.N_sup=N_sup
         
     def __getitem__(self, index):
+        if index > self.N_sup-1:
+            return self.X[index], self.y[index]
         return self.X[index], self.y[index]
 
     def __len__(self):
@@ -112,8 +115,15 @@ class LadderLoss(nn.Module):
         self.return_list = return_list
         
     def forward(self, outputs, labels):
-        if not self.return_list: return F.mse_loss(outputs[0], labels) + outputs[1]
-        return [F.mse_loss(outputs[0], labels), outputs[1]]
+        valid_index = torch.where(~(labels<-999))[0]
+        tmp_out = outputs[0][valid_index]
+        tmp_labels = labels[valid_index]
+        unsup_loss = outputs[1]
+        mse_loss = 0.0
+        if tmp_out.shape[0] > 0 and tmp_labels.shape[0] > 0:
+            mse_loss = F.mse_loss(tmp_out, tmp_labels)
+        if not self.return_list: return mse_loss+unsup 
+        return [mse_loss, unsup_loss] 
 
 class LadderUncertLoss(nn.Module):
     def __init__(self, n_task):
