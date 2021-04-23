@@ -257,9 +257,9 @@ class SklearnModel:
         if not metric: return mean_squared_error(y_test, y_pred) 
         else: return metric(y_test, y_pred)
 
-def change_learning_rate(a_optimizer):
+def change_learning_rate(a_optimizer, lr):
     for g in a_optimizer.param_groups:
-        g['lr'] = 0.001
+        g['lr'] = lr
     return a_optimizer
 
 def pcgrad_update(model, model_optimizer, losses):
@@ -298,3 +298,4 @@ def create_data_for_feynman(G, target, filename):
             else:
                 file.write(string_out+'\n') 
     print("Done writing into the file")
+    file.close()
