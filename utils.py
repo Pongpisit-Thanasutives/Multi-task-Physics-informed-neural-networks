@@ -283,3 +283,18 @@ def pcgrad_update(model, model_optimizer, losses):
         param.grad = (updated_grads[0][idx]+updated_grads[1][idx])
 
     return model, model_optimizer, sum(losses)
+
+def create_data_for_feynman(G, target, filename):
+    if len(target.shape)>1:
+        target = np.squeeze(target) 
+    with open(filename, "w") as file:
+        for row in range(G.shape[0]):
+            string_out = ''
+            for col in range(G.shape[1]):
+                string_out += str(G[row][col]) + ' '
+            string_out += str(target[row])
+            if row == G.shape[0]-1:
+                file.write(string_out) 
+            else:
+                file.write(string_out+'\n') 
+    print("Done writing into the file")
