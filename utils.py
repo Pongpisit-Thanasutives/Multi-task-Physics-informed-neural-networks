@@ -84,17 +84,33 @@ def to_tensor(arr, g=True):
 def to_numpy(a_tensor):
     return a_tensor.detach().numpy()
 
+def sampling_unit_circle(N):
+    points = []
+    for _ in range(N):
+        length = np.sqrt(np.random.uniform(0, 1)); angle = np.pi * np.random.uniform(0, 2)
+        points.append([length * np.cos(angle), length * np.sin(angle)])
+    return np.array(points)
+
 def minmax_normalize(features):
     mini = torch.min(features, axis=0)[0]
     maxi = torch.max(features, axis=0)[0]
-    features_std = (features-features.min(axis=0)[0]) / (features.max(axis=0)[0]-features.min(axis=0)[0])
-    features_std = features_std * (maxi-mini) + mini
+    features_std = (features-mini) / (maxi-mini) 
     return features_std
+
+def scale_to_range(features, lb, ub):
+    scaled_features = minmax_normalize(features)
+    scaled_features = (ub-lb)*scaled_features + lb  
+    return scaled_features
 
 def numpy_minmax_normalize(arr):
     mini = np.min(arr, axis=0)
     maxi = np.max(arr, axis=0)
     return (arr-mini)/(maxi-mini)
+
+def numpy_scale_to_range(arr, lb, ub):
+    scaled_arr = numpy_minmax_normalize(arr)
+    scaled_arr = (ub-lb)*scaled_arr + lb
+    return scaled_arr
 
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
