@@ -91,6 +91,11 @@ def minmax_normalize(features):
     features_std = features_std * (maxi-mini) + mini
     return features_std
 
+def numpy_minmax_normalize(arr):
+    mini = np.min(arr, axis=0)
+    maxi = np.max(arr, axis=0)
+    return (arr-mini)/(maxi-mini)
+
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
 
