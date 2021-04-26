@@ -16,6 +16,7 @@ import numpy as np
 from sklearn.metrics import *
 
 import pcgrad
+from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
 
 ## Saving ###
 def pickle_save(obj, path):
@@ -157,6 +158,13 @@ class LadderUncertLoss(nn.Module):
         unsup_loss = outputs[1].unsqueeze(0)
         losses = torch.cat([mse_loss, unsup_loss])
         return weights.dot(losses)
+
+def distance_loss(inputs, targets, distance_function=torch_energy_loss):
+    total_loss = 0.0
+    assert inputs.shape == targets.shape
+    for i in range(inputs.shape[1]):
+        total_loss += distance_function(inputs[:, i], targets[:, i])
+    return total_loss
 
 ### Model-related code base ###
 class CrossStich(nn.Module):
