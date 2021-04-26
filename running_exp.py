@@ -266,13 +266,6 @@ else:
 print("Deleted the fake labels used in Learning rate finder")
 u_train = u_train[:N, :]
 
-
-# In[8]:
-
-
-# Set the learing_rate to the suggested one.
-# suggested_lr = 1e-4
-
 if lr_finder and suggested_lr:
     optimizer1 = lr_finder.optimizer
     
