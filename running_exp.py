@@ -1,23 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
 import matplotlib.pyplot as plt
-
-# always import gbm_algos first !
-import xgboost, lightgbm, catboost
 
 # Core
 import numpy as np
 import scipy.io as io
 from torch.autograd import grad
 from torch.utils.data import DataLoader, Dataset
-
-# Sklearn
-from sklearn.ensemble import RandomForestRegressor
-from mlens.ensemble import SuperLearner
 
 # Let's do facy optimizers
 from optimizers import Lookahead, AdamGC, SGDGC
@@ -30,6 +19,7 @@ from geomloss import SamplesLoss
 from utils import *
 
 from tqdm import trange
+from sparse_linear import *
 
 
 # In[2]:
@@ -73,9 +63,8 @@ u_train = torch.tensor(u_train).float().requires_grad_(True)
 X_star = torch.tensor(X_star).float().requires_grad_(True)
 u_star = torch.tensor(u_star).float().requires_grad_(True)
 # lb and ub are used in adversarial training
-scaling_factor = 2.0
-lb = scaling_factor*(to_tensor(lb, False))
-ub = scaling_factor*(to_tensor(ub, False))
+lb = to_tensor(lb, False)
+ub = to_tensor(ub, False)
 feature_names=['uf', 'u_x',  'u_xx', 'u_tt', 'u_xt', 'u_tx']
 
 
@@ -131,7 +120,7 @@ class SeclectorNetwork(nn.Module):
     def __init__(self, X_train_dim, bn=None):
         super().__init__()
         # Nonlinear model, Training with PDE reg.
-        self.nonlinear_model = TorchMLP(dimensions=[X_train_dim, 50, 50, 1], activation_function=nn.Tanh, bn=bn, dropout=nn.Dropout(p=0.1), inp_drop=False)
+        self.nonlinear_model = TorchSparseMLP(dimensions=[X_train_dim, 512, 50, 1], sparsity=0.9, activation_function=nn.Tanh, bn=bn, dropout=None, inp_drop=False)
         
     def xavier_init(self, m):
         if type(m) == nn.Linear:
@@ -266,16 +255,23 @@ else:
 print("Deleted the fake labels used in Learning rate finder")
 u_train = u_train[:N, :]
 
+
+# In[8]:
+
+
+# Set the learing_rate to the suggested one.
+# suggested_lr = 1e-4
+
 if lr_finder and suggested_lr:
     optimizer1 = lr_finder.optimizer
     
 for g in optimizer1.param_groups:
     g['lr'] = suggested_lr
         
-epochs1 = 2500; epochs2 = 500;
+epochs1 = 2000; epochs2 = 500;
 
 
-# In[9]:
+# In[11]:
 
 
 # Setting up the generator
@@ -289,7 +285,7 @@ sinkhorn_loss = SamplesLoss("sinkhorn", p=2, blur=1.0)
 
 # ### Experiments with the generator
 
-# In[10]:
+# In[12]:
 
 
 # print("Training the generator for ")
@@ -320,7 +316,7 @@ sinkhorn_loss = SamplesLoss("sinkhorn", p=2, blur=1.0)
 # X_gen = scale_to_range(generator(X_u_train[:N, :]), lb, ub)
 
 
-# In[ ]:
+# In[13]:
 
 
 curr_loss = 1000; F_print = 10 if choice == 'LBFGS' else 100
@@ -364,7 +360,7 @@ for i in range(epochs1):
         print("Semi-supervised solver loss @Epoch {}: ".format(i), curr_loss)
 
 
-# In[ ]:
+# In[12]:
 
 
 optimizer2 = torch.optim.LBFGS(semisup_model.network.parameters(), 
@@ -390,23 +386,24 @@ semisup_model.network.eval()
 print('Test MSE:', F.mse_loss(semisup_model.network(*dimension_slicing(X_star)).detach(), u_star).item())
 
 
-# In[ ]:
+# In[13]:
 
 
 # BEST-2000: 1e-06 (LBFGS)
-torch.save(semisup_model.state_dict(), "./saved_path_inverse_burger/running_exp.pth")
+# print("Saving running_exp.pth")
+# torch.save(semisup_model.state_dict(), "./saved_path_inverse_burger/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained1000unlabeledsamples.pth")
 
 
-# In[ ]:
+# In[11]:
 
 
 # Loading the best model and testing
-# semisup_model.load_state_dict(torch.load("./saved_path_inverse_burger/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained1000unlabeledsamples.pth"), strict=False)
+# semisup_model.load_state_dict(torch.load("./saved_path_inverse_burger/running_exp.pth"), strict=False)
 # semisup_model.eval()
 # F.mse_loss(semisup_model.network(*dimension_slicing(X_star)).detach(), u_star)
 
 
-# In[ ]:
+# In[12]:
 
 
 # derivatives_test, dynamics_test = semisup_model.network.get_selector_data(*dimension_slicing(X_star))
@@ -415,10 +412,10 @@ torch.save(semisup_model.state_dict(), "./saved_path_inverse_burger/running_exp.
 # derivatives_test, dynamics_test = to_numpy(derivatives_test), to_numpy(dynamics_test)
 # derivatives_train, dynamics_train = to_numpy(derivatives_train), to_numpy(dynamics_train)
 
-# np.save("./saved_path_inverse_burger/data/derivatives-3000-V1-with-1000unlabledsamples.npy", derivatives_train)
-# np.save("./saved_path_inverse_burger/data/dynamics-3000-V1-with-1000unlabledsamples.npy", dynamics_train)
-# np.save("./saved_path_inverse_burger/data/derivatives-25600-V1-with-1000unlabledsamples.npy", derivatives_test)
-# np.save("./saved_path_inverse_burger/data/dynamics-25600-V1-with-1000unlabledsamples.npy", dynamics_test)
+# np.save("./saved_path_inverse_burger/data/derivatives-4000-V1-with-2000unlabledadversarialsamples.npy", derivatives_train)
+# np.save("./saved_path_inverse_burger/data/dynamics-4000-V1-with-2000unlabledadversarialsamples.npy", dynamics_train)
+# np.save("./saved_path_inverse_burger/data/derivatives-25600-V1-with-2000unlabledadversarialsamples.npy", derivatives_test)
+# np.save("./saved_path_inverse_burger/data/dynamics-25600-V1-with-2000unlabledadversarialsamples.npy", dynamics_test)
 
 
 # In[ ]:
