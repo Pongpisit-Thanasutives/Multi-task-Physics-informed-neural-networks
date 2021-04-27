@@ -92,6 +92,11 @@ def sampling_unit_circle(N):
         points.append([length * np.cos(angle), length * np.sin(angle)])
     return np.array(points)
 
+def sampling_from_rows(a_tensor, N):
+    r = a_tensor.shape[0]
+    idxs = torch.randint(0, r, (r,))
+    return a_tensor[idxs, :]
+
 def minmax_normalize(features):
     mini = torch.min(features, axis=0)[0]
     maxi = torch.max(features, axis=0)[0]
