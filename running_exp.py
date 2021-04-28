@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
 import matplotlib.pyplot as plt
 
 # always import gbm_algos first !
@@ -55,7 +53,7 @@ N_res = 1000
 idx_res = np.array(range(X_star.shape[0]-1))[~idx]
 idx_res = np.random.choice(idx_res.shape[0], N_res, replace=True)
 X_res = X_star[idx_res, :]
-print(f"Training with {N} unsup samples")
+print(f"Training with {N_res} unsup samples")
 X_u_train = np.vstack([X_u_train, X_res])
 u_train = np.vstack([u_train, torch.rand(X_res.shape[0], 1) - 1000])
 # del X_res
@@ -162,7 +160,7 @@ class SemiSupModel(nn.Module):
 #                              maxi=None)
 
 ### Version with normalized derivatives ###
-pretrained_state_dict = torhc.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-8.pth")
+pretrained_state_dict = torch.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-8.pth")
 referenced_derivatives = np.load("./saved_path_inverse_burger/data/derivatives-25600-V1-with-1000unlabledsamples.npy")
 semisup_model = SemiSupModel(network=Network(model=TorchMLP(dimensions=[2, 50, 50, 50 ,50, 50, 1], activation_function=nn.Tanh, bn=nn.LayerNorm, dropout=None)),
                              selector=SeclectorNetwork(X_train_dim=6, bn=nn.LayerNorm),
@@ -253,10 +251,9 @@ u_train = u_train[:N, :]
 
 # Set the learing_rate to the suggested one.
 # suggested_lr = 1e-5
-
+print("Training with learning rate =", suggested_lr)
 if lr_finder and suggested_lr:
     optimizer1 = lr_finder.optimizer
-
 for g in optimizer1.param_groups:
     g['lr'] = suggested_lr
 
@@ -302,10 +299,6 @@ sinkhorn_loss = SamplesLoss("sinkhorn", p=2, blur=1.0)
 # generator.load_state_dict(best_generator_state_dict)
 # generator.eval()
 # X_gen = scale_to_range(generator(X_u_train[:N, :]), lb, ub)
-
-
-# In[11]:
-
 
 curr_loss = 1000; F_print = 10 if choice == 'LBFGS' else 100
 
@@ -377,6 +370,7 @@ print('Test MSE:', F.mse_loss(semisup_model.network(*dimension_slicing(X_star)).
 # BEST-2000: 1e-06 (LBFGS)
 MODEL_PATH = './saved_path_inverse_burger/lbfgsnew_results/running_exp.pth'
 # torch.save(semisup_model.state_dict(), "./saved_path_inverse_burger/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained1000unlabeledsamples.pth")
+print("Saving running_exp.pth")
 torch.save(semisup_model.state_dict(), MODEL_PATH)
 
 # Loading the best model and testing
