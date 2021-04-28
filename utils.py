@@ -94,7 +94,7 @@ def sampling_unit_circle(N):
 
 def sampling_from_rows(a_tensor, N):
     r = a_tensor.shape[0]
-    idxs = torch.randint(0, r, (r,))
+    idxs = to_tensor(np.random.choice(r, N, replace=False))
     return a_tensor[idxs, :]
 
 def minmax_normalize(features):

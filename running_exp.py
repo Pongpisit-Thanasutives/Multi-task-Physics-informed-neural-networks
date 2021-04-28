@@ -26,12 +26,7 @@ import pcgrad
 from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss
 from geomloss import SamplesLoss
 from utils import *
-
 from tqdm import trange
-
-
-# In[13]:
-
 
 DATA_PATH = "/Users/pongpisit/Desktop/research/pinn/Solving-Differential-Equations-with-Neural-Networks/SymbolicMathematics/data/burgers_shock.mat"
 data = io.loadmat(DATA_PATH)
@@ -56,7 +51,7 @@ X_u_train = X_star[idx, :]
 u_train = u_star[idx,:]
 
 # Unsup data
-N_res = N
+N_res = 1000
 idx_res = np.array(range(X_star.shape[0]-1))[~idx]
 idx_res = np.random.choice(idx_res.shape[0], N_res, replace=True)
 X_res = X_star[idx_res, :]
@@ -71,14 +66,10 @@ u_train = torch.tensor(u_train).float().requires_grad_(True)
 X_star = torch.tensor(X_star).float().requires_grad_(True)
 u_star = torch.tensor(u_star).float().requires_grad_(True)
 # lb and ub are used in adversarial training
-scaling_factor = 2.0
+scaling_factor = 1.0
 lb = scaling_factor*to_tensor(lb, False)
 ub = scaling_factor*to_tensor(ub, False)
 feature_names=['uf', 'u_x',  'u_xx', 'u_tt', 'u_xt', 'u_tx']
-
-
-# In[14]:
-
 
 class Network(nn.Module):
     def __init__(self, model):
@@ -171,12 +162,16 @@ class SemiSupModel(nn.Module):
 #                              maxi=None)
 
 ### Version with normalized derivatives ###
+pretrained_state_dict = torhc.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-8.pth")
 referenced_derivatives = np.load("./saved_path_inverse_burger/data/derivatives-25600-V1-with-1000unlabledsamples.npy")
 semisup_model = SemiSupModel(network=Network(model=TorchMLP(dimensions=[2, 50, 50, 50 ,50, 50, 1], activation_function=nn.Tanh, bn=nn.LayerNorm, dropout=None)),
                              selector=SeclectorNetwork(X_train_dim=6, bn=nn.LayerNorm),
                              normalize_derivative_features=True, 
                              mini=to_tensor(np.min(referenced_derivatives, axis=0), False), 
                              maxi=to_tensor(np.max(referenced_derivatives, axis=0), False))
+if pretrained_state_dict is not None:
+    print("semisup_model uses a pretrained weights.")
+    semisup_model.load_state_dict(pretrained_state_dict)
 
 def pcgrad_closure():
     global N, X_u_train, u_train
@@ -212,20 +207,16 @@ def closure():
         mse_loss.backward(retain_graph=False)
     return mse_loss
 
-
-# In[ ]:
-
-
 params = semisup_model.parameters()
 
 ### For SGD and Adam ###
-learning_rate1, learning_rate2 = 1e-7, 1e-1
+learning_rate1, learning_rate2 = 1e-8, 1e-1
 
 ### For LBFGS (a good choice already!!!) ###
 # print("Using LBFGS's learning rate set")
 # learning_rate1, learning_rate2 = 8e-2, 5e-2 # (1e-1, 5e-2) is also OK!
 
-choice = 'MAD'; auto_lr = False
+choice = 'MAD'; auto_lr = True
 if choice == 'LBFGS':
     optimizer1 = torch.optim.LBFGS(params, lr=learning_rate1, 
                                    max_iter=100, max_eval=125, 
@@ -261,7 +252,7 @@ print("Deleted the fake labels used in Learning rate finder")
 u_train = u_train[:N, :]
 
 # Set the learing_rate to the suggested one.
-suggested_lr = 1e-5
+# suggested_lr = 1e-5
 
 if lr_finder and suggested_lr:
     optimizer1 = lr_finder.optimizer
@@ -269,12 +260,12 @@ if lr_finder and suggested_lr:
 for g in optimizer1.param_groups:
     g['lr'] = suggested_lr
 
-epochs1 = 2000; epochs2 = 50000;
+epochs1 = 300; epochs2 = 30000;
 
 # Setting up the generator
 generator = TorchMLP([2, 50, 50, 2])
 # generator_training_epochs indicates how string the generator is
-adv_f = 100; generator_training_epochs = 300; generator_training_limit = 300
+adv_f = 100; generator_training_epochs = 300; generator_training_limit = epochs1-100
 # I can use the Learning rate finder to find a good lr for the generator optim  as well
 generator_optimizer = torch.optim.SGD(generator.parameters(), lr=3e-4, momentum=0.95)
 sinkhorn_loss = SamplesLoss("sinkhorn", p=2, blur=1.0)
@@ -341,7 +332,7 @@ for i in range(epochs1):
         generator.load_state_dict(best_generator_state_dict)
         generator.eval()
         X_gen = scale_to_range(generator(X_u_train[:N, :]), lb, ub)
-        X_gen = sampling_from_rows(X_gen, N_res)
+        if N_res<N: X_gen = sampling_from_rows(X_gen, N_res)
         X_u_train = torch.cat([X_u_train[:N, :], X_gen], dim=0).detach().requires_grad_(True)
 
     semisup_model.train()
