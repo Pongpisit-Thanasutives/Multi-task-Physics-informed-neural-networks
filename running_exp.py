@@ -161,6 +161,7 @@ class SemiSupModel(nn.Module):
 
 ### Version with normalized derivatives ###
 pretrained_state_dict = torch.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-8.pth")
+# pretrained_state_dict = None
 referenced_derivatives = np.load("./saved_path_inverse_burger/data/derivatives-25600-V1-with-1000unlabledsamples.npy")
 semisup_model = SemiSupModel(network=Network(model=TorchMLP(dimensions=[2, 50, 50, 50 ,50, 50, 1], activation_function=nn.Tanh, bn=nn.LayerNorm, dropout=None)),
                              selector=SeclectorNetwork(X_train_dim=6, bn=nn.LayerNorm),
