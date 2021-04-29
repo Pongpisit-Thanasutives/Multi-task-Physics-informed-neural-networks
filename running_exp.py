@@ -49,7 +49,7 @@ X_u_train = X_star[idx, :]
 u_train = u_star[idx,:]
 
 # Unsup data
-N_res = 1000
+N_res = 2000
 idx_res = np.array(range(X_star.shape[0]-1))[~idx]
 idx_res = np.random.choice(idx_res.shape[0], N_res, replace=True)
 X_res = X_star[idx_res, :]

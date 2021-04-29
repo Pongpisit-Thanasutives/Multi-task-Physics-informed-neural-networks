@@ -97,6 +97,7 @@ def sampling_from_rows(a_tensor, N):
     idxs = np.random.choice(r, N, replace=False) 
     return a_tensor[idxs, :]
 
+# is the mini and maxi is going to be dynamics during the training but not trainable because of there is no grad.
 def minmax_normalize(features):
     mini = torch.min(features, axis=0)[0]
     maxi = torch.max(features, axis=0)[0]
@@ -108,6 +109,7 @@ def scale_to_range(features, lb, ub):
     scaled_features = (ub-lb)*scaled_features + lb  
     return scaled_features
 
+# is the mini and maxi is going to be dynamics during the training but not trainable because of there is no grad.
 def numpy_minmax_normalize(arr):
     mini = np.min(arr, axis=0)
     maxi = np.max(arr, axis=0)
@@ -117,6 +119,9 @@ def numpy_scale_to_range(arr, lb, ub):
     scaled_arr = numpy_minmax_normalize(arr)
     scaled_arr = (ub-lb)*scaled_arr + lb
     return scaled_arr
+
+def cap_values(a_tensor, lb, ub):
+    return (a_tensor-lb)/(ub-lb)
 
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
@@ -202,6 +207,21 @@ class Swish(nn.Module):
     
     def forward(self, x):
         return x*torch.sigmoid(x)
+
+class AconC(nn.Module):
+    r""" ACON activation (activate or not).
+    # AconC: (p1*x-p2*x) * sigmoid(beta*(p1*x-p2*x)) + p2*x, beta is a learnable parameter
+    # according to "Activate or Not: Learning Customized Activation" <https://arxiv.org/pdf/2009.04759.pdf>.
+    """
+
+    def __init__(self, width):
+        super().__init__()
+        self.p1 = nn.Parameter(torch.randn(1, width, 1, 1))
+        self.p2 = nn.Parameter(torch.randn(1, width, 1, 1))
+        self.beta = nn.Parameter(torch.ones(1, width, 1, 1))
+
+    def forward(self, x):
+        return (self.p1 * x - self.p2 * x) * torch.sigmoid(self.beta * (self.p1 * x - self.p2 * x)) + self.p2 * x
 
 def simple_solver_model(hidden_nodes):
     model = nn.Sequential(nn.Linear(2, hidden_nodes),
