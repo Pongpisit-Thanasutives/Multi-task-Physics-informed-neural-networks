@@ -49,7 +49,7 @@ X_u_train = X_star[idx, :]
 u_train = u_star[idx,:]
 
 # Unsup data
-N_res = 2000
+N_res = 1000
 idx_res = np.array(range(X_star.shape[0]-1))[~idx]
 idx_res = np.random.choice(idx_res.shape[0], N_res, replace=True)
 X_res = X_star[idx_res, :]
@@ -160,7 +160,7 @@ class SemiSupModel(nn.Module):
 #                              maxi=None)
 
 ### Version with normalized derivatives ###
-pretrained_state_dict = torch.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-8.pth")
+pretrained_state_dict = torch.load("./saved_path_inverse_burger/lbfgsnew_results/semisup_model_with_LayerNormDropout_without_physical_reg_trained2000labeledsamples_trained0unlabeledsamples_4.6e-08.pth")
 # pretrained_state_dict = None
 referenced_derivatives = np.load("./saved_path_inverse_burger/data/derivatives-25600-V1-with-1000unlabledsamples.npy")
 semisup_model = SemiSupModel(network=Network(model=TorchMLP(dimensions=[2, 50, 50, 50 ,50, 50, 1], activation_function=nn.Tanh, bn=nn.LayerNorm, dropout=None)),

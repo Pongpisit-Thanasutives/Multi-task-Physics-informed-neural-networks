@@ -65,6 +65,9 @@ def string2int(s):
         out += ord(s[i])
     return out
 
+def scientific2string(x):
+    return format(x, '.1e')
+
 def convert_listoftuples_dict(tup, di={}):
     for a, b in tup:
         di.setdefault(a, b)
