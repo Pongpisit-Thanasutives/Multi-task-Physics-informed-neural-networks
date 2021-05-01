@@ -47,9 +47,5 @@ end
 save('reaction_diffusion_big.mat','t','x','y','u','v')
 
 %%
-load reaction_diffusion_big
-pcolor(x,y,u(:,:,end)); shading interp; colormap(hot)
-
-
-
-
+% load reaction_diffusion_big
+% pcolor(x,y,u(:,:,end)); shading interp; colormap(hot)

@@ -9,7 +9,7 @@ from sympy.core import evaluate
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.autograd import Variable
+from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader, Dataset
 
 import numpy as np
@@ -125,6 +125,9 @@ def numpy_scale_to_range(arr, lb, ub):
 
 def cap_values(a_tensor, lb, ub):
     return (a_tensor-lb)/(ub-lb)
+
+def diff(func, inp):
+    return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))
 
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)

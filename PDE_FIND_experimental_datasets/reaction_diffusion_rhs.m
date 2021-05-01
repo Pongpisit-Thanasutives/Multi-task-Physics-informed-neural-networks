@@ -12,4 +12,3 @@ vtrhs=reshape((fft2(v-u2v-v3-beta*u3-beta*uv2)),N,1);
 
 rhs=[-d1*K22.*uvt(1:N)+utrhs
      -d2*K22.*uvt(N+1:end)+vtrhs];
-
