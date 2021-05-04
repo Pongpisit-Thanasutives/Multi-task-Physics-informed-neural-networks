@@ -85,6 +85,9 @@ def is_nan(a_tensor):
 def to_tensor(arr, g=True):
     return torch.tensor(arr).float().requires_grad_(g)
 
+def to_complex_tensor(arr, g=True):
+    return torch.tensor(arr, dtype=torch.cfloat).requires_grad_(g)
+
 def to_numpy(a_tensor):
     return a_tensor.detach().numpy()
 
@@ -127,7 +130,7 @@ def cap_values(a_tensor, lb, ub):
     return (a_tensor-lb)/(ub-lb)
 
 def diff(func, inp):
-    return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))
+    return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
 
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
@@ -175,12 +178,12 @@ class LadderUncertLoss(nn.Module):
         losses = torch.cat([mse_loss, unsup_loss])
         return weights.dot(losses)
 
-def distance_loss(inputs, targets, distance_function=torch_energy_loss):
-    total_loss = 0.0
-    assert inputs.shape == targets.shape
-    for i in range(inputs.shape[1]):
-        total_loss += distance_function(inputs[:, i], targets[:, i])
-    return total_loss
+# def distance_loss(inputs, targets, distance_function=torch_energy_loss):
+#     total_loss = 0.0
+#     assert inputs.shape == targets.shape
+#     for i in range(inputs.shape[1]):
+#         total_loss += distance_function(inputs[:, i], targets[:, i])
+#     return total_loss
 
 ### Model-related code base ###
 class CrossStich(nn.Module):
@@ -250,6 +253,7 @@ def evaluate_ladder_network_mse(network, X_star, u_star):
 class TorchMLP(nn.Module):
     def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, bn=None, dropout=None, inp_drop=False, final_activation=None):
         super(TorchMLP, self).__init__()
+        print("Using old implementation of TorchMLP. See models.py for more new model-related source codeP")
         self.model  = nn.ModuleList()
         # Can I also use the LayerNorm with elementwise_affine=True
         # This should be a callable module.
