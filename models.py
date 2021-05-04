@@ -7,18 +7,11 @@ from complexPyTorch.complexFunctions import complex_relu, complex_max_pool2d
 # from utils import *
 
 from cplxmodule import nn as cnn
-# complex valued tensor class
 from cplxmodule import cplx
-# converters
 from cplxmodule.nn import RealToCplx, CplxToReal
-# layers of encapsulating other complex valued layers
-from cplxmodule.nn import CplxSequential
-# common layers
-from cplxmodule.nn import CplxLinear
-# activation layers
-from cplxmodule.nn import CplxModReLU
+from cplxmodule.nn import CplxSequential, CplxLinear, CplxModReLU
 
-def cat(v1, v2): return torch.cat([v1, v2], dim=-1)
+def cat(*args): return torch.cat(args, dim=-1)
 
 def cplx2tensor(func):
     return func.real + 1j*func.imag
@@ -31,6 +24,15 @@ def complex_mse(v1, v2):
 
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, allow_unused=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
+
+class ImaginaryDimensionAdder(nn.Module):
+    def __init__(self,):
+        super(ImaginaryDimensionAdder, self).__init__(); pass
+    def forward(self, real_tensor):
+        added = cat(real_tensor[:, 0:1], torch.zeros(real_tensor.shape[0], 1))
+        for i in range(1, real_tensor.shape[1]):
+            added = cat(added, real_tensor[:, i:i+1], torch.zeros(real_tensor.shape[0], 1))
+        return added
 
 class TorchMLP(nn.Module):
     def __init__(self, dimensions, bias=True, activation_function=nn.Tanh(), bn=None, dropout=None):
