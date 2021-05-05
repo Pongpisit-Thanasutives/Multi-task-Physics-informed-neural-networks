@@ -69,8 +69,7 @@ def scientific2string(x):
     return format(x, '.1e')
 
 def convert_listoftuples_dict(tup, di={}):
-    for a, b in tup:
-        di.setdefault(a, b)
+    for a, b in tup: di[a]=b
     return di
 
 def dimension_slicing(a_tensor):
@@ -253,7 +252,7 @@ def evaluate_ladder_network_mse(network, X_star, u_star):
 class TorchMLP(nn.Module):
     def __init__(self, dimensions, bias=True,activation_function=nn.Tanh, bn=None, dropout=None, inp_drop=False, final_activation=None):
         super(TorchMLP, self).__init__()
-        print("Using old implementation of TorchMLP. See models.py for more new model-related source codeP")
+        print("Using old implementation of TorchMLP. See models.py for more new model-related source code.")
         self.model  = nn.ModuleList()
         # Can I also use the LayerNorm with elementwise_affine=True
         # This should be a callable module.

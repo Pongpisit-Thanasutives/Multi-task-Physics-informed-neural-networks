@@ -23,6 +23,6 @@ def space_time_grid(data_path, real_solution=False):
     return X, T, Exact
 
 def get_trainable_data(X, T, Exact):
-    X_star = np.hstack((X.flatten()[:,None], T.flatten()[:,None]))
-    u_star = Exact.flatten()[:,None]
+    X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+    u_star = Exact.flatten()[:, None]
     return X_star, u_star
