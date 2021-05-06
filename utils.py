@@ -128,6 +128,16 @@ def numpy_scale_to_range(arr, lb, ub):
 def cap_values(a_tensor, lb, ub):
     return (a_tensor-lb)/(ub-lb)
 
+def diff_order(dterm):
+    return dterm.split("_")[-1][::-1]
+
+def diff_flag(index2feature):
+    dd = {0:[], 1:[]}
+    for t in index2feature:
+        if '_' not in t: dd[0].append(t)
+        else: dd[1].append(diff_order(t))
+    return dd
+
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
 

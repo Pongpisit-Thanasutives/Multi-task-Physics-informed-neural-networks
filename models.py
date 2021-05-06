@@ -10,6 +10,8 @@ from cplxmodule import cplx
 from cplxmodule.nn import RealToCplx, CplxToReal
 from cplxmodule.nn import CplxSequential, CplxLinear, CplxModReLU
 
+from utils import diff_flag
+
 def cat(*args): return torch.cat(args, dim=-1)
 
 def cplx2tensor(func):
@@ -101,6 +103,8 @@ class Network(nn.Module):
         self.model = model
         # For tracking
         self.index2features = index2features 
+        print("Considering", self.index2features)
+        self.diff_flag = diff_flag(self.index2features)
         self.uf = None
 
     def xavier_init(self, m):
@@ -112,7 +116,7 @@ class Network(nn.Module):
         self.uf = self.model(torch.cat([x, t], dim=1))
         return self.uf
 
-    def get_selector_data(self, x, t):
+    def get_selector_data_old(self, x, t):
         uf = self.forward(x, t)
 
         ### PDE Loss calculation ###
@@ -130,6 +134,26 @@ class Network(nn.Module):
         y_selector = u_t
 
         return X_selector, y_selector
+
+    def get_selector_data(self, x, t):
+        uf = self.forward(x, t)
+        u_t = self.gradients(uf, t)[0]
+        
+        ### PDE Loss calculation ###
+        # Without calling grad
+        derivatives = []
+        for t in self.diff_flag[0]:
+            if t=='uf': derivatives.append(uf)
+            elif t=='x': derivatives.append(x)
+        # With calling grad
+        for t in self.diff_flag[1]:
+            out = uf
+            for c in t:
+                if c=='x': out = self.gradients(out, x)[0]
+                elif c=='t': out = self.gradients(out, t)[0]
+            derivatives.append(out)
+        
+        return torch.cat(derivatives, dim=1), u_t
 
     def gradients(self, func, x):
         return grad(func, x, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape))
