@@ -1,0 +1,1 @@
+python3 symbolic_kdv_solve.py ./inverse_KdV/semisup_model_with_LayerNormDropout_without_physical_reg_trained500labeledsamples_trained250unlabeledsamples_4.1e-07.pth ./PDE_FIND_experimental_datasets/kdv.mat

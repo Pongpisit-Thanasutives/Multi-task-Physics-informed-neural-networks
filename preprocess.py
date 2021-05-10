@@ -3,6 +3,30 @@ import glob
 import numpy as np
 from scipy.io import loadmat
 
+def delta(arr):
+    assert len(arr.shape)==1
+    return arr[1]-arr[0]
+
+def to_column_vector(arr):
+    return arr.flatten()[:, None]
+
+def load_indiv(data_path, real_solution=False):
+    data = loadmat(data_path)
+
+    time_key = 't' if 't' in data.keys() else 'tt'
+    u_key = 'usol' if 'usol' in data.keys() else None
+    if u_key is None:
+        if 'u' in data.keys(): u_key = 'u'
+        else: u_key = 'uu'
+    spatial_key = 'x' if 'x' in data.keys() else 'xx'
+
+    t = data[time_key].flatten()[:, None]
+    x = data[spatial_key].flatten()[:, None]
+    Exact = data[u_key]
+    if real_solution: Exact = np.real(Exact)
+    
+    return x, t, Exact.T
+
 def space_time_grid(data_path, real_solution=False):
     data = loadmat(data_path)
     

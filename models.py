@@ -97,7 +97,7 @@ class TorchComplexMLP(nn.Module):
         return x
 
 class Network(nn.Module):
-    def __init__(self, model, index2features = ('uf', 'u_x',  'u_xx', 'u_tt', 'u_xt', 'u_tx')):
+    def __init__(self, model, index2features = ('uf', 'u_x',  'u_xx', 'u_tt', 'u_xt', 'u_tx'), scale=False, lb=None, ub=None):
         super(Network, self).__init__()
         # pls init the self.model before
         self.model = model
@@ -106,6 +106,8 @@ class Network(nn.Module):
         print("Considering", self.index2features)
         self.diff_flag = diff_flag(self.index2features)
         self.uf = None
+        self.scale = scale
+        self.lb, self.ub = lb, ub
 
     def xavier_init(self, m):
         if type(m) == nn.Linear:
@@ -113,7 +115,8 @@ class Network(nn.Module):
             m.bias.data.fill_(0.01)
 
     def forward(self, x, t):
-        self.uf = self.model(torch.cat([x, t], dim=1))
+        if not self.scale: self.uf = self.model(torch.cat([x, t], dim=1))
+        else: self.uf = self.model(self.neural_net_scale(torch.cat([x, t], dim=1)))
         return self.uf
 
     def get_selector_data_old(self, x, t):
@@ -158,6 +161,9 @@ class Network(nn.Module):
     def gradients(self, func, x):
         return grad(func, x, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape))
 
+    def neural_net_scale(self, inp): 
+        return 2*(inp-self.lb/(self.ub-self.lb))-1
+
 class SeclectorNetwork(nn.Module):
     def __init__(self, X_train_dim, bn=None):
         super(SeclectorNetwork, self).__init__()
@@ -178,6 +184,37 @@ class SeclectorNetwork(nn.Module):
         mse_loss = F.mse_loss(ut_approx, y_input, reduction='mean')
         return mse_loss
 
+class AttentionSelectorNetwork(nn.Module):
+    def __init__(self, layers, prob_activation=torch.sigmoid, bn=None, reg_intensity=0.3):
+        super(AttentionSelectorNetwork, self).__init__()
+        # Nonlinear model, Training with PDE reg.
+        assert len(layers) > 1
+        self.linear1 = nn.Linear(layers[0], layers[0])
+        self.prob_activation = prob_activation
+        self.nonlinear_model = TorchMLP(dimensions=layers, activation_function=nn.Tanh(), bn=bn, dropout=nn.Dropout(p=0.1))
+        self.latest_weighted_features = None
+        self.th = 0.5
+        self.reg_intensity = reg_intensity
+        
+    def xavier_init(self, m):
+        if type(m) == nn.Linear:
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+        
+    def forward(self, inn):
+        return self.nonlinear_model(inn*self.weighted_features(inn))
+    
+    def weighted_features(self, inn):
+        self.latest_weighted_features = self.prob_activation(self.linear1(inn)).mean(axis=0)
+        return self.latest_weighted_features
+    
+    def loss(self, X_input, y_input):
+        ut_approx = self.forward(X_input)
+        mse_loss = F.mse_loss(ut_approx, y_input, reduction='mean')
+        return mse_loss+self.reg_intensity*torch.norm(F.relu(self.latest_weighted_features-self.th), p=0)
+
+        return self.network.uf, unsup_loss
+
 class SemiSupModel(nn.Module):
     def __init__(self, network, selector, normalize_derivative_features=False, mini=None, maxi=None):
         super(SemiSupModel, self).__init__()
@@ -186,8 +223,8 @@ class SemiSupModel(nn.Module):
         self.normalize_derivative_features = normalize_derivative_features
         self.mini = mini
         self.maxi = maxi
-    def forward(self, X_u_train):
-        X_selector, y_selector = self.network.get_selector_data(*dimension_slicing(X_u_train))
+    def forward(self, X_u_train, scale=False):
+        X_selector, y_selector = self.network.get_selector_data(*dimension_slicing(self.neural_net_scale(X_u_train, self.lb, self.ub)))
         if self.normalize_derivative_features:
             X_selector = (X_selector-self.mini)/(self.maxi-self.mini)
         unsup_loss = self.selector.loss(X_selector, y_selector)

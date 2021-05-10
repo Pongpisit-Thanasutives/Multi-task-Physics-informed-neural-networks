@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 
 import numpy as np
 from sklearn.metrics import *
+from pyGRNN import feature_selection as FS
 
 import pcgrad
 from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
@@ -329,6 +330,10 @@ class SklearnModel:
         y_pred = self.model.predict(X_test)
         if not metric: return mean_squared_error(y_test, y_pred) 
         else: return metric(y_test, y_pred)
+
+def pyGRNN_feature_selection(X, y, feature_names):
+    IsotropicSelector = FS.Isotropic_selector(bandwidth='rule-of-thumb')
+    return IsotropicSelector.feat_selection(to_numpy(X), to_numpy(y).ravel(), feature_names=feature_names, strategy ='es')
 
 def change_learning_rate(a_optimizer, lr):
     for g in a_optimizer.param_groups:
