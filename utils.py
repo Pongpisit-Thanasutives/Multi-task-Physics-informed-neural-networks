@@ -1,6 +1,7 @@
 import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import pickle
+from glob import glob as flist
 from sympy import *
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
@@ -11,6 +12,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader, Dataset
+from collections import OrderedDict
 
 import numpy as np
 from sklearn.metrics import *
@@ -43,6 +45,8 @@ def build_exp(program):
     }
     
     exp = simplify(parse_expr(str(program), local_dict=local_dict))
+    exp = exp.subs(Integer(-1), Float(-1.0, precision=53))
+    exp = exp.subs(Integer(+1), Float(1.0, precision=53))
     variables = exp.atoms(Symbol)
     
     return exp, variables
