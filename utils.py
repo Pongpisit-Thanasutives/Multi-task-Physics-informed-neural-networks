@@ -2,6 +2,7 @@ import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import pickle
 from glob import glob as flist
+from collections import Counter
 from sympy import *
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
@@ -20,6 +21,9 @@ from pyGRNN import feature_selection as FS
 
 import pcgrad
 from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
+
+# Finite difference method
+from findiff import FinDiff, coefficients, Coefficient
 
 ## Saving ###
 def pickle_save(obj, path):
@@ -86,6 +90,9 @@ def dimension_slicing(a_tensor):
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
 
+def to_column_vector(arr):
+    return arr.flatten()[:, None]
+
 def to_tensor(arr, g=True):
     return torch.tensor(arr).float().requires_grad_(g)
 
@@ -145,6 +152,38 @@ def diff_flag(index2feature):
 
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
+
+def finite_diff(func, axis, delta, diff_order=1, acc_order=2):
+    assert axis in range(len(func.shape))
+    return FinDiff(axis, delta, diff_order, acc=acc_order)(func)
+
+class FinDiffCalculator:
+    def __init__(self, X, T, Exact, dx=None, dt=None, acc_order=2):
+        self.X = X; self.T = T; self.Exact = Exact
+        if dx is not None: self.dx = dx
+        else: self.dx = self.X[0, :][1]-self.X[0, :][0]
+        print('dx =', self.dx)
+        if dt is not None: self.dt = dt
+        else: self.dt = self.T[:, 0][1]-self.T[:, 0][0]
+        print('dt =', self.dt)
+        self.deltas = [self.dx, self.dt]
+        self.acc_order = acc_order
+    # Cal d_dt using this function
+    def finite_diff(self, axis, diff_order=1):
+        return to_column_vector(FinDiff(axis, self.deltas[axis], diff_order, acc=self.acc_order)(self.Exact))
+    def finite_diff_from_feature_names(self, index2feature):
+        out = {}
+        for f in index2feature:
+            if '_' not in f:
+                if f == 'uf': out[f] = to_column_vector(self.Exact)
+                elif f == 'x': out[f] = to_column_vector(self.X)
+                else: raise NotImplementedError
+            else:
+                counter = Counter(f.split('_')[1])
+                if len(counter.keys())==1 and 'x' in counter.keys():
+                    out[f] = (to_column_vector(self.finite_diff(axis=0, diff_order=counter['x'])))
+                else: raise NotImplementedError
+        return out
 
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)

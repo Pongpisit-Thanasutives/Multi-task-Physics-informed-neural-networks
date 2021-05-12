@@ -14,6 +14,9 @@ from utils import diff_flag
 
 def cat(*args): return torch.cat(args, dim=-1)
 
+def to_column_vector(arr):
+    return arr.flatten()[:, None]
+
 def cplx2tensor(func):
     return func.real + 1j*func.imag
 
