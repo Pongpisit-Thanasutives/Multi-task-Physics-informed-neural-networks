@@ -17,13 +17,13 @@ from collections import OrderedDict
 
 import numpy as np
 from sklearn.metrics import *
-# from pyGRNN import feature_selection as FS
+from pyGRNN import feature_selection as FS
 
-# import pcgrad
-# from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
+import pcgrad
+from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
 
 # Finite difference method
-# from findiff import FinDiff, coefficients, Coefficient
+from findiff import FinDiff, coefficients, Coefficient
 
 ## Saving ###
 def pickle_save(obj, path):
@@ -86,6 +86,9 @@ def dimension_slicing(a_tensor):
     out = []
     for i in range(1, c+1): out.append(a_tensor[:, i-1:i])
     return out
+
+def get_feature(a_tensor, dim):
+    return a_tensor[:, dim:dim+1]
 
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
@@ -159,7 +162,7 @@ def finite_diff(func, axis, delta, diff_order=1, acc_order=2):
 
 class FinDiffCalculator:
     def __init__(self, X, T, Exact, dx=None, dt=None, acc_order=2):
-        self.X = X; self.T = T; self.Exact = Exact
+        self.X = X; self.T = T; self.Exact = Exact.T
         if dx is not None: self.dx = dx
         else: self.dx = self.X[0, :][1]-self.X[0, :][0]
         print('dx =', self.dx)
