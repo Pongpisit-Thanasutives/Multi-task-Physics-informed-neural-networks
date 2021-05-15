@@ -90,6 +90,9 @@ def dimension_slicing(a_tensor):
 def get_feature(a_tensor, dim):
     return a_tensor[:, dim:dim+1]
 
+def cpu_load(a_path):
+    return torch.load(a_path, map_location="cpu")
+
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
 
@@ -173,18 +176,18 @@ class FinDiffCalculator:
         self.acc_order = acc_order
     # Cal d_dt using this function
     def finite_diff(self, axis, diff_order=1):
-        return to_column_vector(FinDiff(axis, self.deltas[axis], diff_order, acc=self.acc_order)(self.Exact))
+        return to_column_vector(FinDiff(axis, self.deltas[axis], diff_order, acc=self.acc_order)(self.Exact).T)
     def finite_diff_from_feature_names(self, index2feature):
         out = {}
         for f in index2feature:
             if '_' not in f:
-                if f == 'uf': out[f] = to_column_vector(self.Exact)
+                if f == 'uf': out[f] = to_column_vector(self.Exact.T)
                 elif f == 'x': out[f] = to_column_vector(self.X)
                 else: raise NotImplementedError
             else:
                 counter = Counter(f.split('_')[1])
                 if len(counter.keys())==1 and 'x' in counter.keys():
-                    out[f] = (to_column_vector(self.finite_diff(axis=0, diff_order=counter['x'])))
+                    out[f] = (self.finite_diff(axis=0, diff_order=counter['x']))
                 else: raise NotImplementedError
         return out
 
@@ -379,7 +382,7 @@ class SklearnModel:
 
 def pyGRNN_feature_selection(X, y, feature_names):
     IsotropicSelector = FS.Isotropic_selector(bandwidth='rule-of-thumb')
-    return IsotropicSelector.feat_selection(to_numpy(X), to_numpy(y).ravel(), feature_names=feature_names, strategy ='es')
+    return IsotropicSelector.feat_selection((X), (y).ravel(), feature_names=feature_names, strategy ='es')
 
 def change_learning_rate(a_optimizer, lr):
     for g in a_optimizer.param_groups:
