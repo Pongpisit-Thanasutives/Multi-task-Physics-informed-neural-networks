@@ -19,8 +19,8 @@ import numpy as np
 from sklearn.metrics import *
 from pyGRNN import feature_selection as FS
 
-import pcgrad
-from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
+# import pcgrad
+# from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss 
 
 # Finite difference method
 from findiff import FinDiff, coefficients, Coefficient
@@ -92,6 +92,9 @@ def get_feature(a_tensor, dim):
 
 def cpu_load(a_path):
     return torch.load(a_path, map_location="cpu")
+
+def gpu_load(a_path):
+    return torch.load(a_path, map_location="cuda")
 
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
