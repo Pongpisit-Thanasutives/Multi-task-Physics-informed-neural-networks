@@ -383,6 +383,15 @@ class SklearnModel:
         if not metric: return mean_squared_error(y_test, y_pred) 
         else: return metric(y_test, y_pred)
 
+# calculate aic for regression
+def calculate_aic(n, mse, num_params):
+	aic = n * log(mse) + 2 * num_params
+	return aic
+
+def calculate_bic(n, mse, num_params):
+	bic = n * log(mse) + num_params * log(n)
+	return bic
+
 def pyGRNN_feature_selection(X, y, feature_names):
     IsotropicSelector = FS.Isotropic_selector(bandwidth='rule-of-thumb')
     return IsotropicSelector.feat_selection((X), (y).ravel(), feature_names=feature_names, strategy ='es')
