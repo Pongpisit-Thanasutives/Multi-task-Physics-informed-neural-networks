@@ -15,6 +15,7 @@ from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader, Dataset
 from collections import OrderedDict
 
+import math
 import numpy as np
 from sklearn.metrics import *
 from pyGRNN import feature_selection as FS
@@ -391,6 +392,13 @@ def calculate_aic(n, mse, num_params):
 def calculate_bic(n, mse, num_params):
 	bic = n * log(mse) + num_params * log(n)
 	return bic
+
+def occam_razor(scores):
+    mse_performances = [e[0] for e in scores]
+    complexities = [e[1] for e in scores]
+    max_mse = max(mse_performances)
+    max_complexity = 10*max(complexities)
+    return [-math.log((e[0]/max_mse)/(max_complexity-e[1])) for e in scores]
 
 def pyGRNN_feature_selection(X, y, feature_names):
     IsotropicSelector = FS.Isotropic_selector(bandwidth='rule-of-thumb')
