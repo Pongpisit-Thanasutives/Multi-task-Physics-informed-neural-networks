@@ -1,5 +1,4 @@
 import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
 import pickle
 from glob import glob as flist
 from collections import Counter
@@ -41,6 +40,7 @@ def pickle_load(path):
     return obj
 
 def build_exp(program):
+    print("Please ensure that all coefs are different")
     x = Symbol("x"); y = Symbol("y")
     
     local_dict = {
