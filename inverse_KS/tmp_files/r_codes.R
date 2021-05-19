@@ -1,0 +1,5 @@
+library(L0Learn)
+X = data.matrix(read.csv("fd_derivatives.csv", header=FALSE))
+y = data.matrix(read.csv("fd_u_t.csv", header=FALSE))
+fit = L0Learn.fit(X, y, penalty="L0", maxSuppSize=4, nLambda=2000, lows=-1., highs=0.0, intercept=FALSE)
+print(fit)
