@@ -178,6 +178,7 @@ def finite_diff(func, axis, delta, diff_order=1, acc_order=2):
 
 class FinDiffCalculator:
     def __init__(self, X, T, Exact, dx=None, dt=None, acc_order=2):
+        print("Do not use this class with complex-valued input arrays.")
         self.X = X; self.T = T; self.Exact = Exact.T
         if dx is not None: self.dx = dx
         else: self.dx = self.X[0, :][1]-self.X[0, :][0]
@@ -194,8 +195,9 @@ class FinDiffCalculator:
         out = {}
         for f in index2feature:
             if '_' not in f:
-                if f == 'uf': out[f] = to_column_vector(self.Exact.T)
+                if f == 'uf' or f == 'hf': out[f] = to_column_vector(self.Exact.T)
                 elif f == 'x': out[f] = to_column_vector(self.X)
+                elif f == '|uf|' or f == '|hf|': out[f] = to_column_vector((self.Exact.real**2+self.Exact.imag**2).T)
                 else: raise NotImplementedError
             else:
                 counter = Counter(f.split('_')[1])

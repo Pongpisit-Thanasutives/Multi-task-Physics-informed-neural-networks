@@ -65,6 +65,7 @@ class TorchMLP(nn.Module):
 class TorchComplexMLP(nn.Module):
     def __init__(self, dimensions, bias=True, activation_function=nn.Tanh(), bn=None, dropout_rate=0.0):
         super(TorchComplexMLP, self).__init__()
+        print("The implementation was based on complexPyTorch.")
         self.model  = nn.ModuleList()
         self.dropout = None
         if dropout_rate>0.0: 
