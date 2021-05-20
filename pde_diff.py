@@ -51,7 +51,7 @@ def TikhonovDiff(f, dx, lam, d = 1):
     D = sparse.diags([e, -e], [1, 0], shape=(n-1, n)).todense() / dx
     
     # Invert to find derivative
-    g = np.squeeze(np.asarray(np.linalg.lstsq(A.T.dot(A) + lam*D.T.dot(D),A.T.dot(f))[0]))
+    g = np.squeeze(np.asarray(np.linalg.lstsq(A.T.dot(A) + lam*D.T.dot(D),A.T.dot(f), rcond=None)[0]))
     
     if d == 1: return g
 
@@ -434,7 +434,7 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
 
     # Get the standard least squares estimator
     w = np.zeros((D,1))
-    w_best = np.linalg.lstsq(TrainR, TrainY)[0]
+    w_best = np.linalg.lstsq(TrainR, TrainY, rcond=None)[0]
     err_best = np.linalg.norm(TestY - TestR.dot(w_best), 2) + l0_penalty*np.count_nonzero(w_best)
     tol_best = 0
 
@@ -505,7 +505,7 @@ def Lasso(X0, Y, lam, w = np.array([0]), maxit = 100, normalize = 2):
     
     # Now that we have the sparsity pattern, used least squares.
     biginds = np.where(w != 0)[0]
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],Y)[0]
+    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds], rcond=None)[0]
 
     # Finally, reverse the regularization so as to be able to use with raw data
     if normalize != 0: return np.multiply(Mreg,w)
@@ -555,7 +555,7 @@ def ElasticNet(X0, Y, lam1, lam2, w = np.array([0]), maxit = 100, normalize = 2)
     
     # Now that we have the sparsity pattern, used least squares.
     biginds = np.where(w != 0)[0]
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],Y)[0]
+    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],Y, rcond=None)[0]
 
     # Finally, reverse the regularization so as to be able to use with raw data
     if normalize != 0: return np.multiply(Mreg,w)
@@ -580,8 +580,8 @@ def STRidge(X0, y, lam, maxit, tol, normalize = 2, print_results = False):
     else: X = X0
     
     # Get the standard ridge esitmate
-    if lam != 0: w = np.linalg.lstsq(X.T.dot(X) + lam*np.eye(d),X.T.dot(y))[0]
-    else: w = np.linalg.lstsq(X,y)[0]
+    if lam != 0: w = np.linalg.lstsq(X.T.dot(X) + lam*np.eye(d),X.T.dot(y), rcond=None)[0]
+    else: w = np.linalg.lstsq(X,y, rcond=None)[0]
     num_relevant = d
     biginds = np.where( abs(w) > tol)[0]
     
@@ -606,11 +606,11 @@ def STRidge(X0, y, lam, maxit, tol, normalize = 2, print_results = False):
         
         # Otherwise get a new guess
         w[smallinds] = 0
-        if lam != 0: w[biginds] = np.linalg.lstsq(X[:, biginds].T.dot(X[:, biginds]) + lam*np.eye(len(biginds)),X[:, biginds].T.dot(y))[0]
-        else: w[biginds] = np.linalg.lstsq(X[:, biginds],y)[0]
+        if lam != 0: w[biginds] = np.linalg.lstsq(X[:, biginds].T.dot(X[:, biginds]) + lam*np.eye(len(biginds)),X[:, biginds].T.dot(y), rcond=None)[0]
+        else: w[biginds] = np.linalg.lstsq(X[:, biginds],y, rcond=None)[0]
 
     # Now that we have the sparsity pattern, use standard least squares to get w
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],y)[0]
+    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],y, rcond=None)[0]
     
     if normalize != 0: return np.multiply(Mreg,w)
     else: return w
@@ -652,7 +652,7 @@ def FoBaGreedy(X, y, epsilon = 0.1, maxit_f = 100, maxit_b = 5, backwards_freq =
         
         F[k] = F[k-1].union({i})
         w[k] = np.zeros((d,1), dtype=np.complex64)
-        w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y)[0]
+        w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y, rcond=None)[0]
 
         # check for break condition
         delta[k] = np.linalg.norm(X.dot(w[k-1]) - y) - np.linalg.norm(X.dot(w[k]) - y)
@@ -680,7 +680,7 @@ def FoBaGreedy(X, y, epsilon = 0.1, maxit_f = 100, maxit_b = 5, backwards_freq =
                 k = k-1;
                 F[k] = F[k+1].difference({j})
                 w[k] = np.zeros((d,1))
-                w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y)[0]
+                w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y, rcond=None)[0]
 
     return w[k] 
     

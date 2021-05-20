@@ -18,6 +18,7 @@ import math
 import numpy as np
 import pandas as pd
 from sklearn.metrics import *
+from sklearn.preprocessing import PolynomialFeatures
 from pyGRNN import feature_selection as FS
 
 import pcgrad
@@ -88,6 +89,9 @@ def dimension_slicing(a_tensor):
     out = []
     for i in range(1, c+1): out.append(a_tensor[:, i-1:i])
     return out
+
+def cat(*args):
+    return torch.cat(args, dim=-1)
 
 def get_feature(a_tensor, dim):
     return a_tensor[:, dim:dim+1]
@@ -163,6 +167,10 @@ def diff_flag(index2feature):
 
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
+
+def complex_diff(func, inp, return_complex=True):
+    if return_complex: return diff(func.real, inp)+1j*diff(func.imag, inp)
+    else: return cat(diff(func.real, inp), diff(func.imag, inp))
 
 def finite_diff(func, axis, delta, diff_order=1, acc_order=2):
     assert axis in range(len(func.shape))
@@ -384,6 +392,29 @@ class SklearnModel:
         y_pred = self.model.predict(X_test)
         if not metric: return mean_squared_error(y_test, y_pred) 
         else: return metric(y_test, y_pred)
+
+class ComplexPolynomialFeatures:
+    def __init__(self, feature_names, dictionary):
+        self.feature_names = feature_names
+        self.dictionary = dictionary
+        self.poly_feature_names = PolynomialFeatures(include_bias=True).fit(np.array(list(dictionary.values())).squeeze(-1).T.real).get_feature_names(self.feature_names)
+        self.output = np.ones(self.dictionary[self.feature_names[0]].shape, dtype=np.complex64)
+
+    def fit(self,):
+        for f in self.poly_feature_names[1:]:
+            print("Computing", f)
+            self.output = np.hstack((self.output, compute_from_description(f, self.dictionary)))
+        return self.output
+
+def compute_from_description(description, dictionary, split_keys=(" ", "^")):
+    terms = description.split(split_keys[0]); out = 1
+    for t in terms:
+        if t in dictionary:
+            out = out*dictionary[t]
+        else:
+            t, deg = t.split(split_keys[1])
+            out = out*dictionary[t]**int(deg)
+    return out
 
 # calculate aic for regression
 def calculate_aic(n, mse, num_params):
