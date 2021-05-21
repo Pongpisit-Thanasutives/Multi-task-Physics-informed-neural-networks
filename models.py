@@ -7,8 +7,8 @@ from complexPyTorch.complexFunctions import complex_relu, complex_max_pool2d
 
 from cplxmodule import nn as cnn
 from cplxmodule import cplx
-from cplxmodule.nn import RealToCplx, CplxToReal
-from cplxmodule.nn import CplxSequential, CplxLinear, CplxModReLU
+from cplxmodule.nn import RealToCplx, CplxToReal, CplxToCplx, CplxSequential
+from cplxmodule.nn import CplxLinear, CplxModReLU, CplxDropout, CplxBatchNorm1d
 
 from utils import diff_flag
 
@@ -62,10 +62,42 @@ class TorchMLP(nn.Module):
             x = l(x)
         return x
 
+class ComplexTorchMLP(nn.Module):
+    def __init__(self, dimensions, bias=True, activation_function=CplxToCplx[torch.tanh](), bn=False, dropout_rate=0.0):
+        super(ComplexTorchMLP, self).__init__()
+        self.model  = [] 
+        self.bias = bias
+        self.dropout = None
+        if dropout_rate>0.0: self.dropout = CplxDropout
+        else: self.dropout = None
+        if bn: self.bn = CplxBatchNorm1d
+        else: self.bn = None
+        for i in range(len(dimensions)-1):
+            linear = CplxLinear(dimensions[i], dimensions[i+1], bias=self.bias)
+            self.model.append(linear)
+            if self.bn is not None and i!=len(dimensions)-2:
+                self.model.append(self.bn(dimensions[i+1]))
+                if self.dropout is not None:
+                    self.model.append(self.dropout(dropout_rate))
+            if i==len(dimensions)-2: break
+            self.model.append(activation_function)
+        self.model = CplxSequential(*self.model) 
+
+    def xavier_init(self, m):
+        if type(m) == nn.Linear or type(m) == CplxLinear:
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+
+    def forward(self, x):
+        for i, l in enumerate(self.model): 
+            x = l(x)
+        return x
+
 class TorchComplexMLP(nn.Module):
     def __init__(self, dimensions, bias=True, activation_function=nn.Tanh(), bn=None, dropout_rate=0.0):
         super(TorchComplexMLP, self).__init__()
-        print("The implementation was based on complexPyTorch.")
+        print("This class is deprecated.")
+        print("The implementation was based on complexPyTorch, which will be no longer used.")
         self.model  = nn.ModuleList()
         self.dropout = None
         if dropout_rate>0.0: 
