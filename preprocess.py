@@ -10,7 +10,7 @@ def delta(arr):
 def to_column_vector(arr):
     return arr.flatten()[:, None]
 
-def load_indiv(data_path, real_solution=False):
+def load_indiv(data_path, real_solution=False, uniform=True, x_limit=None, t_limit=None):
     data = loadmat(data_path)
 
     time_key = 't' if 't' in data.keys() else 'tt'
@@ -23,11 +23,25 @@ def load_indiv(data_path, real_solution=False):
     t = data[time_key].flatten()[:, None]
     x = data[spatial_key].flatten()[:, None]
     Exact = data[u_key]
+
+    if uniform:
+        print("Data is arranged in an uniform grid")
+        if x_limit is not None: x = x[:x_limit, :]; Exact = Exact[:x_limit, :]
+        if t_limit is not None: t = t[:t_limit, :]; Exact = Exact[:, :t_limit]
+    else:
+        print("Enforcing non-uniform grid")
+        if x_limit is not None:
+            idx_x = np.random.choice(len(x), x_limit, replace=False) 
+            x = x[idx_x, :]; Exact = Exact[idx_x, :]
+        if t_limit is not None:
+            idx_t = np.random.choice(len(t), t_limit, replace=False)
+            t = t[idx_t, :]; Exact = Exact[:, idx_t]
+
     if real_solution: Exact = np.real(Exact)
     
     return x, t, Exact.T
 
-def space_time_grid(data_path, real_solution=False):
+def space_time_grid(data_path, real_solution=False, uniform=True, x_limit=None, t_limit=None):
     data = loadmat(data_path)
     
     time_key = 't' if 't' in data.keys() else 'tt'
@@ -40,7 +54,22 @@ def space_time_grid(data_path, real_solution=False):
     t = data[time_key].flatten()[:, None]
     x = data[spatial_key].flatten()[:, None]
     Exact = data[u_key]
+
+    if uniform:
+        print("Data is arranged in an uniform grid")
+        if x_limit is not None: x = x[:x_limit, :]; Exact = Exact[:x_limit, :]
+        if t_limit is not None: t = t[:t_limit, :]; Exact = Exact[:, :t_limit]
+    else:
+        print("Enforcing non-uniform grid")
+        if x_limit is not None:
+            idx_x = np.random.choice(len(x), x_limit, replace=False) 
+            x = x[idx_x, :]; Exact = Exact[idx_x, :]
+        if t_limit is not None:
+            idx_t = np.random.choice(len(t), t_limit, replace=False)
+            t = t[idx_t, :]; Exact = Exact[:, idx_t]
+
     if real_solution: Exact = np.real(Exact)
+
     Exact = Exact.T
     X, T = np.meshgrid(x, t)
     
