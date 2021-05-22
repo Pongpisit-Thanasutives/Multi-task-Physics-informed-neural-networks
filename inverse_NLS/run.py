@@ -366,7 +366,7 @@ class ComplexAttentionSelectorNetwork(nn.Module):
         ut_approx = self.forward(X_input)
         mse_loss = complex_mse(ut_approx, y_input)
         reg_term = F.relu(self.latest_weighted_features-self.th)
-        return mse_loss+self.reg_intensity*(torch.norm(reg_term, p=0)+(torch.tensor([1.0, 1.0, 2.0, 3.0, 4.0])*reg_term).sum())
+        return mse_loss+self.reg_intensity*(torch.norm(reg_term, p=0)+(torch.tensor([1.0, 1.0, 1.0, 2.0, 3.0])*reg_term).sum())
 
 # Only the SemiSupModel has changed to work with the finite difference guidance
 class SemiSupModel(nn.Module):
@@ -441,8 +441,4 @@ for i in range(50000):
     selector_optimizer.step()
     print(l.item())
 
-
-
 torch.save(selector.state_dict(), './saved_path_inverse_nls/selector.pth')
-
-
