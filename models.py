@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable, grad
+import sympytorch
 from complexPyTorch.complexLayers import ComplexBatchNorm1d, ComplexDropout, ComplexLinear
 from complexPyTorch.complexFunctions import complex_relu, complex_max_pool2d
 
@@ -265,3 +266,12 @@ class SemiSupModel(nn.Module):
             X_selector = (X_selector-self.mini)/(self.maxi-self.mini)
         unsup_loss = self.selector.loss(X_selector, y_selector)
         return self.network.uf, unsup_loss
+
+# Extension of basic sympymodule for supporting operations with complex numbers
+class ComplexSymPyModule(nn.Module):
+    def __init__(self, complex_coeffs, expressions):
+        super(ComplexSymPyModule, self).__init__()
+        self.sympymodule = sympytorch.SymPyModule(expressions=expressions)
+        self.complex_coeffs = nn.Parameter(data=torch.tensor(complex_coeffs, dtype=torch.cfloat))
+    def forward(self, kwargs):
+        return torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs.T
