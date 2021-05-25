@@ -1,0 +1,2 @@
+No need to scale the input before a cpinn's forward pass
+This is just due to the way the model was trained.

@@ -168,6 +168,9 @@ def diff_flag(index2feature):
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
 
+def fd_diff(func, delta, dim=0):
+    return torch.diff(func, dim=dim, n=1)/delta
+
 def complex_diff(func, inp, return_complex=True):
     if return_complex: return diff(func.real, inp)+1j*diff(func.imag, inp)
     else: return cat(diff(func.real, inp), diff(func.imag, inp))
