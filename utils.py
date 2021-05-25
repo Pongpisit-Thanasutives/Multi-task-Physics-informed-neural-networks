@@ -168,8 +168,10 @@ def diff_flag(index2feature):
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
 
-def fd_diff(func, delta, dim=0):
-    return torch.diff(func, dim=dim, n=1)/delta
+# Careful that there is no delta[i] = 0
+# Use this function to approximate a higher-order derivative
+def fd_diff(func, xx, dim=0):
+    return torch.diff(func, dim=dim, n=1)/(torch.diff(xx, dim=dim))
 
 def complex_diff(func, inp, return_complex=True):
     if return_complex: return diff(func.real, inp)+1j*diff(func.imag, inp)
