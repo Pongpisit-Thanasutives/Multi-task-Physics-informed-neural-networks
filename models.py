@@ -27,6 +27,10 @@ def add_imaginary_dimension(a_tensor):
 def complex_mse(v1, v2):
     return F.mse_loss(v1.real, v2.real)+F.mse_loss(v1.imag, v2.imag)
 
+def real_mse(v1, v2):
+    row = min(v1.shape[0], v2.shape[0])
+    return F.mse_loss(v1[:row, :], v2[:row, :])
+
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, allow_unused=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
 
