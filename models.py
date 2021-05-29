@@ -273,9 +273,10 @@ class SemiSupModel(nn.Module):
 
 # Extension of basic sympymodule for supporting operations with complex numbers
 class ComplexSymPyModule(nn.Module):
-    def __init__(self, complex_coeffs, expressions):
+    def __init__(self, expressions, complex_coeffs=None):
         super(ComplexSymPyModule, self).__init__()
         self.sympymodule = sympytorch.SymPyModule(expressions=expressions)
+        if complex_coeffs is None: complex_coeffs = [torch.complex(torch.rand(1), torch.rand(1)) for _ in range(len(expressions))]
         self.complex_coeffs = nn.Parameter(data=torch.tensor(complex_coeffs, dtype=torch.cfloat))
     def forward(self, kwargs):
-        return torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs.T
+        return (torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs.T).reshape(-1, 1)
