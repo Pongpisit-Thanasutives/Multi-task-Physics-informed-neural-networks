@@ -27,6 +27,15 @@ from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss
 # Finite difference method
 from findiff import FinDiff, coefficients, Coefficient
 
+def search_files(directory='.', extension=''):
+    extension = extension.lower()
+    for dirpath, dirnames, files in os.walk(directory):
+        for name in files:
+            if extension and name.lower().endswith(extension):
+                print(os.path.join(dirpath, name))
+            elif not extension:
+                print(os.path.join(dirpath, name))
+
 ## Saving ###
 def pickle_save(obj, path):
     with open(path, 'wb') as f:

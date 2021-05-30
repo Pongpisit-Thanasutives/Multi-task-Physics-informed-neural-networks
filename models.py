@@ -11,7 +11,7 @@ from cplxmodule import cplx
 from cplxmodule.nn import RealToCplx, CplxToReal, CplxToCplx, CplxSequential
 from cplxmodule.nn import CplxLinear, CplxModReLU, CplxDropout, CplxBatchNorm1d
 
-from utils import diff_flag
+from utils import diff_flag, to_complex_tensor
 
 def cat(*args): return torch.cat(args, dim=-1)
 
@@ -276,7 +276,14 @@ class ComplexSymPyModule(nn.Module):
     def __init__(self, expressions, complex_coeffs=None):
         super(ComplexSymPyModule, self).__init__()
         self.sympymodule = sympytorch.SymPyModule(expressions=expressions)
-        if complex_coeffs is None: complex_coeffs = [torch.complex(torch.rand(1), torch.rand(1)) for _ in range(len(expressions))]
-        self.complex_coeffs = nn.Parameter(data=torch.tensor(complex_coeffs, dtype=torch.cfloat))
+        if complex_coeffs is None: 
+            self.reals = nn.Parameter(torch.rand(len(expressions), 1))
+            self.imags = nn.Parameter(torch.rand(len(expressions), 1))
+        else:
+            complex_coeffs = to_complex_tensor(complex_coeffs)
+            self.reals = nn.Parameter(complex_coeffs.real.reshape(-1, 1))
+            self.imags = nn.Parameter(complex_coeffs.imag.reshape(-1, 1))
     def forward(self, kwargs):
-        return (torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs.T).reshape(-1, 1)
+        return (torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs()).reshape(-1, 1)
+    def complex_coeffs(self,):
+        return torch.complex(self.reals, self.imags)

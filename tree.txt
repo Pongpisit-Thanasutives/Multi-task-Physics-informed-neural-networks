@@ -62,6 +62,8 @@
 │   │   │   ├── 041d62ff03151ad96ebaed075507888236a5f3
 │   │   │   ├── 5485cc144cb9ac40f341c37f7e305e7f81573a
 │   │   │   └── c0ccedc1b7e1035cf19ca37e4197f7772aed94
+│   │   ├── 0a
+│   │   │   └── 244628b08cc3dc4e10583c8217755ef1c59bfc
 │   │   ├── 0b
 │   │   │   ├── 38de638606e03f8ca2137223bb577eaa5d79ae
 │   │   │   └── 585a11ed7858d67055328454347c0421de7269
@@ -387,12 +389,16 @@
 │   │   ├── 88
 │   │   │   ├── 0652dfee29cb0982ccf002b14c22a713816f69
 │   │   │   └── 24769332539a4ed4a8bf8e004bc4639d617ad1
+│   │   ├── 89
+│   │   │   └── afffdecafa72eb92ab61f3a82a91e94806c155
 │   │   ├── 8a
 │   │   │   └── 4c8217935d2c0dc5f8c2890cac54c2b73e37ce
 │   │   ├── 8b
 │   │   │   └── 651ad57f9576941228da16f057f87422cbc4e5
 │   │   ├── 8c
 │   │   │   └── 7e2d67db445e235b5e5e6083ce3f71ff68eabe
+│   │   ├── 8d
+│   │   │   └── 4ab2616e0bce5c75f415820c0dc59fcf770d23
 │   │   ├── 8e
 │   │   │   ├── 226a7c3ab1d992fc43e3a6403e11e9d5d0e54b
 │   │   │   ├── 465e118c2198bc26a28615a1d402b53d965fe5
@@ -480,6 +486,8 @@
 │   │   │   └── b46231ea8635849972ddbdb153e1ffa99942f5
 │   │   ├── b5
 │   │   │   └── f3136500edaff7909bdfba458346bc8cabeca9
+│   │   ├── b8
+│   │   │   └── 1579310449cb0cbef3c35dada384a354552e02
 │   │   ├── b9
 │   │   │   ├── 20a0d0968b08ea821bfcd6989e9474186d37cc
 │   │   │   └── 8ec620022bbb3e3dd228c725c5649b73f17554
@@ -734,6 +742,11 @@
 │   ├── hall_of_fame_2021-05-10_045438.629.csv
 │   └── hall_of_fame_2021-05-10_045438.629.csv.bkup
 ├── inverse_KS
+│   ├── .ipynb_checkpoints
+│   │   ├── Inverse\ KS\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad)-checkpoint.ipynb
+│   │   ├── Semi-supervise\ learning\ (Freeze\ success)-checkpoint.ipynb
+│   │   ├── Semi-supervise\ learning\ with\ (15000)\ adversarial\ examples\ (Current\ working\ space)-checkpoint.ipynb
+│   │   └── Symbolic\ regression-checkpoint.ipynb
 │   ├── Inverse\ KS\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad).ipynb
 │   ├── R\ in\ Python.ipynb
 │   ├── README.md
@@ -752,6 +765,8 @@
 │       ├── fd_u_t.csv
 │       └── r_codes.R
 ├── inverse_KdV
+│   ├── .ipynb_checkpoints
+│   │   └── Inverse\ KdV\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad)-checkpoint.ipynb
 │   ├── Computing\ derivatives\ using\ finite\ difference.ipynb
 │   ├── Inverse\ KdV\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad).ipynb
 │   ├── README.md
@@ -762,8 +777,16 @@
 │       ├── semisup_model_with_LayerNormDropout_without_physical_reg_trained10000labeledsamples_trained5000unlabeledsamples_1.1e-07.pth
 │       └── semisup_model_with_LayerNormDropout_without_physical_reg_trained500labeledsamples_trained250unlabeledsamples_4.1e-07.pth
 ├── inverse_NLS
+│   ├── .ipynb_checkpoints
+│   │   ├── Complex\ networks\ solve\ NLS-checkpoint.ipynb
+│   │   ├── Finite\ difference-checkpoint.ipynb
+│   │   ├── Inverse\ NLS\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad)-checkpoint.ipynb
+│   │   ├── Semi-supervise\ learning\ with\ (250)\ adversarial\ examples\ (Current\ working\ space)-checkpoint.ipynb
+│   │   ├── Semi-supervise\ learning\ with\ (250)\ adversarial\ examples\ (Freeze\ success)-checkpoint.ipynb
+│   │   └── Test\ ComplexSympyModule-checkpoint.ipynb
 │   ├── Complex\ networks\ solve\ NLS.ipynb
 │   ├── Finite\ difference.ipynb
+│   ├── Inverse\ NLS\ PINN\ experiments\ (The\ automatic\ approach\ with\ PCGrad).ipynb
 │   ├── README.md
 │   ├── Semi-supervise\ learning\ with\ (125)\ adversarial\ examples\ (Freeze\ success).ipynb
 │   ├── Semi-supervise\ learning\ with\ (250)\ adversarial\ examples\ (Current\ working\ space).ipynb
@@ -781,6 +804,7 @@
 │   │   ├── NLS_complex_model_7500labeledsamples.pth
 │   │   ├── NLS_cpinn.pth
 │   │   ├── NLS_cpinn_model.pth
+│   │   ├── final_finetuned_cpinn.pth
 │   │   └── notes.txt
 │   └── tmp_files
 │       ├── X_train_500+500samples.npy
@@ -867,4 +891,4 @@
     ├── ks_trees_feature_importances_with_softmax.png
     └── nls_feature_importances_selector_with_softmax.png
 
-240 directories, 627 files
+247 directories, 644 files
