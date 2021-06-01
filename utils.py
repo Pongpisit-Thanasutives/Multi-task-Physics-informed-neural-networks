@@ -220,8 +220,31 @@ class FinDiffCalculator:
                 else: raise NotImplementedError
         return out
 
+def train_val_split(a_tensor, train_ratio=0.8):
+    train_len = int(0.8*a_tensor.shape[0])
+    val_len = a_tensor.shape[0]-train_len
+    train_idx, val_idx = torch.utils.data.random_split(np.arange(a_tensor.shape[0]), lengths=[train_len, val_len])
+    train_idx = torch.tensor(train_idx)
+    val_idx = torch.tensor(val_idx)
+    return a_tensor[train_idx], a_tensor[val_idx]
+
+# this function is supposed to be used with the TrainingDataset class
 def get_dataloader(X_train, y_train, bs, N_sup=2000):
     return DataLoader(TrainingDataset(X_train, y_train, N_sup=N_sup), batch_size=bs)
+
+# simple dataset class containing pair (x, y)
+class XYDataset(Dataset):
+    def __init__(self, X_data, y_data):
+        super(XYDataset, self).__init__()
+        assert X_data.shape[0] == y_data.shape[0]
+        self.X_data = X_data
+        self.y_data = y_data
+
+    def __getitem__(self, idx):
+        return self.X_data[idx, :], self.y_data[idx, :]
+
+    def __len__(self,):
+        return self.X_data.shape[0]
 
 class TrainingDataset(Dataset):
     def __init__(self, X_train, y_train, N_sup=2000):
