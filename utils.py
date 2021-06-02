@@ -105,6 +105,9 @@ def cat(*args):
 def get_feature(a_tensor, dim):
     return a_tensor[:, dim:dim+1]
 
+def see_params(a_mod):
+    return [ele.detach() for ele in a_mod.parameters()]
+
 def cpu_load(a_path):
     return torch.load(a_path, map_location="cpu")
 
