@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 from scipy.io import loadmat
+from utils import pickle_load
 
 def delta(arr):
     assert len(arr.shape)==1
@@ -11,7 +12,10 @@ def to_column_vector(arr):
     return arr.flatten()[:, None]
 
 def load_indiv(data_path, real_solution=False, uniform=True, x_limit=None, t_limit=None):
-    data = loadmat(data_path)
+    try:
+        data = loadmat(data_path)
+    except ValueError:
+        data = pickle_load(data_path)
 
     time_key = 't' if 't' in data.keys() else 'tt'
     u_key = 'usol' if 'usol' in data.keys() else None
@@ -42,7 +46,10 @@ def load_indiv(data_path, real_solution=False, uniform=True, x_limit=None, t_lim
     return x, t, Exact.T
 
 def space_time_grid(data_path, real_solution=False, uniform=True, x_limit=None, t_limit=None):
-    data = loadmat(data_path)
+    try:
+        data = loadmat(data_path)
+    except ValueError:
+        data = pickle_load(data_path)
     
     time_key = 't' if 't' in data.keys() else 'tt'
     u_key = 'usol' if 'usol' in data.keys() else None

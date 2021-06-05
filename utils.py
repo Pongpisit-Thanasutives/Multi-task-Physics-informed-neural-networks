@@ -196,13 +196,19 @@ def finite_diff(func, axis, delta, diff_order=1, acc_order=2):
 class FinDiffCalculator:
     def __init__(self, X, T, Exact, dx=None, dt=None, acc_order=2):
         print("Do not use this class with complex-valued input arrays.")
+        print("This class applies 1 transpose to the Exact before doing the job.")
         self.X = X; self.T = T; self.Exact = Exact.T
+
         if dx is not None: self.dx = dx
         else: self.dx = self.X[0, :][1]-self.X[0, :][0]
+        if self.dx == 0.0: self.dx = self.X[:, 0][1]-self.X[:, 0][0]
         print('dx =', self.dx)
+
         if dt is not None: self.dt = dt
         else: self.dt = self.T[:, 0][1]-self.T[:, 0][0]
+        if self.dt == 0.0: self.dt = self.T[0, :][1]-self.T[0, :][0]
         print('dt =', self.dt)
+
         self.deltas = [self.dx, self.dt]
         self.acc_order = acc_order
     # Cal d_dt using this function

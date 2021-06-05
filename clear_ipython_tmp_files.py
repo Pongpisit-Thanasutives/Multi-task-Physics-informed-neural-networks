@@ -2,7 +2,7 @@ import os
 from os.path import join
 import shutil
 
-unwanted_files = ['.virtual_documents', '.ipynb_checkpoints', '__pycache__']
+unwanted_files = ['.DS_store', '.virtual_documents', '.ipynb_checkpoints', '__pycache__']
 print("List of tmp files:", unwanted_files)
 
 command = input()
