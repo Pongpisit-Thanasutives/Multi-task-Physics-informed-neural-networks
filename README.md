@@ -1,6 +1,6 @@
 # Multi-task-Physics-informed-neural-networks
 
-Research code base.
+Research code base. The concept of Multi-task Physics-informed Neural Networks is first proposed in https://arxiv.org/abs/2104.14320.
 
 The current directory corresponds to the Burgers' PDE discovery
 
