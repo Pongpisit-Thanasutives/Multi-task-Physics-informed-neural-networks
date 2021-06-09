@@ -102,6 +102,9 @@ def dimension_slicing(a_tensor):
 def cat(*args):
     return torch.cat(args, dim=-1)
 
+def cat_numpy(*args):
+    return np.hstack(args)
+
 def get_feature(a_tensor, dim):
     return a_tensor[:, dim:dim+1]
 
