@@ -38,9 +38,13 @@ def search_files(directory='.', extension=''):
 
 ## Saving ###
 def pickle_save(obj, path):
-    with open(path, 'wb') as f:
-        pickle.dump(obj, f)
+    for i in range(2):
+        with open(path, 'wb') as f:
+            pickle.dump(obj, f)
     print('Saved to', str(path))
+    data = pickle_load(path)
+    print('Test loading passed')
+    del data
 
 ### Loading ###
 def pickle_load(path):
