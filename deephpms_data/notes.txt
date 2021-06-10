@@ -1,1 +1,2 @@
 There are multiple versions of KS_simple.
+To understand each data config, load and explore.
