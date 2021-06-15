@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import linalg as LA
 from numpy.linalg import norm as Norm
-# from parametric_pde_find import TrainSGTRidge
+from parametric_pde_diff import TrainSGTRidge
 import scipy.sparse as sparse
 from scipy.sparse import csc_matrix
 from scipy.sparse import dia_matrix
@@ -554,6 +554,7 @@ def build_noise_nlssystem(un, n, m, dt, dx):
 # The data could be in the shape of (time_dims, spatial_dims) or (spatial_dims, time_dims)
 # Choose one and use it consistently in your code as well
 def RobustPCA(U, lam_2 = 1e-3):
+    print("Please ensure that the shape of U is correct.")
     Y1         = U
     norm_two  = np.linalg.norm(Y1.ravel(), 2)
     norm_inf  = np.linalg.norm(Y1.ravel(), np.inf) / lam_2
@@ -658,6 +659,7 @@ def DLrSR(R, Ut, xi_true, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
 
 
 def Robust_LRSTR(R, Ut, rhs_des, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
+    Ut = np.reshape(Ut, R.shape)
     nx, nt    = Ut.shape[0], Ut.shape[1]
     # for robust low-rank PCA
     Y2        = Ut

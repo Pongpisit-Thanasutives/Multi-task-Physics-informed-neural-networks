@@ -121,6 +121,15 @@ def cpu_load(a_path):
 def gpu_load(a_path):
     return torch.load(a_path, map_location="cuda")
 
+def load_weights(a_model, a_path, mode="cpu"):
+    if mode=="cpu": sd = cpu_load(a_path)
+    elif mode=="gpu": sd = gpu_load(a_path)
+    try:
+        a_model.load_state_dict(sd)
+        print("Load the model's weights properly")
+    except: print("Cannot load the model' weights properly.")
+    return a_model
+
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
 
