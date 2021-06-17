@@ -1,7 +1,7 @@
 rm -rf ./__pycache__
 rm -rf ./.ipynb_checkpoints
 rm -rf ./.virtual_documents
-# rm hall_of_fame*
+rm -rf /Users/pongpisit/Library/Caches/pip
 
 FILE=./kite_tutorial.ipynb
 if test -f "$FILE"; then
