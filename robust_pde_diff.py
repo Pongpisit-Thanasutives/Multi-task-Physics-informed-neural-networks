@@ -659,7 +659,6 @@ def DLrSR(R, Ut, xi_true, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
 
 
 def Robust_LRSTR(R, Ut, rhs_des, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
-    Ut = np.reshape(Ut, R.shape)
     nx, nt    = Ut.shape[0], Ut.shape[1]
     # for robust low-rank PCA
     Y2        = Ut
