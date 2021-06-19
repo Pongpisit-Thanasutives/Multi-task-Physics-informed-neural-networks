@@ -21,7 +21,8 @@ class ParametricPINN(nn.Module):
 
         self.parametric_func_net = None
         if self.n_funcs>0:
-            self.parametric_func_net = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), self.activation_module,
+            # I should change from 1 -> 2 for being more real.
+            self.parametric_func_net = nn.Sequential(nn.Linear(1, hidden_dims), self.activation_module,
                                                      nn.Linear(hidden_dims, self.n_funcs))
 
         self.pde_solver_net = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), self.activation_module,
@@ -30,14 +31,21 @@ class ParametricPINN(nn.Module):
                                             nn.Linear(hidden_dims, out_dims)) 
 
     def forward(self, x, t):
-        features = self.preprocessor_net(torch.cat([x, t], dim=-1))
-        learned_funcs = self.parametric_func_net(features)
+        inp = cat(x, t)
+        if self.scale: inp = self.neural_net_scale(inp)
+
+        features = self.preprocessor_net(inp)
+        learned_funcs = self.parametric_func_net(inp[:, 1:2])
         u = self.pde_solver_net(features)
+
         return u, learned_funcs 
 
     def loss(self, x, t, y_train):
-        features = self.preprocessor_net(torch.cat([x, t], dim=-1))
-        learned_funcs = self.parametric_func_net(features)
+        inp = cat(x, t)
+        if self.scale: inp = self.neural_net_scale(inp)
+
+        features = self.preprocessor_net(inp)
+        learned_funcs = self.parametric_func_net(inp[:, 1:2])
 
         # Change this part of the codes for discovering different PDEs
         u = self.pde_solver_net(features)
@@ -51,7 +59,7 @@ class ParametricPINN(nn.Module):
         return mse_loss, pde_loss
     
     def neural_net_scale(self, inp):
-        return 2.0*(inp-self.lb)/(self.ub-self.lb) - 1.0
+        return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
 
 if __name__ == "__main__":
     model = ParametricPINN()
