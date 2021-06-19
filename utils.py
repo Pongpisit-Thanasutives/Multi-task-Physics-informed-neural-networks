@@ -2,7 +2,10 @@ import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import pickle
 from glob import glob as flist
 from collections import Counter
-from sympy import *
+
+# This is not a good import.
+# from sympy import *
+
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
 
@@ -152,10 +155,11 @@ def sampling_unit_circle(N):
         points.append([length * np.cos(angle), length * np.sin(angle)])
     return np.array(points)
 
-def sampling_from_rows(a_tensor, N):
+def sampling_from_rows(a_tensor, N, return_idxs=False):
     r = a_tensor.shape[0]
-    idxs = np.random.choice(r, N, replace=False) 
-    return a_tensor[idxs, :]
+    idxs = np.random.choice(r, N, replace=False)
+    if return_idxs: return idxs
+    else: return a_tensor[idxs, :]
 
 # is the mini and maxi is going to be dynamics during the training but not trainable because of there is no grad.
 def minmax_normalize(features):
