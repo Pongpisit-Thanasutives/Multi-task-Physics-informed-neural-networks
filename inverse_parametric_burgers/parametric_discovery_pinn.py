@@ -47,6 +47,16 @@ class ParametricPINN(nn.Module):
 
         return u, learned_funcs 
 
+    def gradients_dict(self, x, t):
+        inp = cat(x, t)
+        if self.scale: inp = self.neural_net_scale(inp)
+        features = self.preprocessor_net(inp)
+        u = self.pde_solver_net(features)
+        u_t = diff(u, t)
+        u_x = diff(u, x)
+        u_xx = diff(u_x, x)
+        return {'u':u, 'u_t':u_t, 'u_x':u_x, 'u_xx':u_xx}
+
     def loss(self, x, t, y_train):
         inp = cat(x, t)
         if self.scale: inp = self.neural_net_scale(inp)
