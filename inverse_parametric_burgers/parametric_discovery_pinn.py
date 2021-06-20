@@ -11,6 +11,7 @@ class ParametricPINN(nn.Module):
         self.hidden_dims = hidden_dims
         self.out_dims = out_dims
         self.n_funcs = n_funcs
+        if self.n_funcs == 0: print("You are not using the parametric_func_net")
         self.activation_module = activation_module
         self.scale = scale
         self.lb = lb
@@ -22,8 +23,11 @@ class ParametricPINN(nn.Module):
         self.parametric_func_net = None
         if self.n_funcs>0:
             # I should change from 1 -> 2 for being more real.
-            self.parametric_func_net = nn.Sequential(nn.Linear(1, hidden_dims), self.activation_module,
-                                                     nn.Linear(hidden_dims, self.n_funcs))
+#           self.parametric_func_net = nn.Sequential(nn.Linear(2, hidden_dims), self.activation_module,
+#                                                    nn.Linear(hidden_dims, self.n_funcs))
+
+            self.parametric_func_net = FuncNet(inp_dims=2, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
+                                                activation_module=self.activation_module)
 
         self.pde_solver_net = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), self.activation_module,
                                             nn.Linear(hidden_dims, hidden_dims), self.activation_module,
@@ -35,7 +39,10 @@ class ParametricPINN(nn.Module):
         if self.scale: inp = self.neural_net_scale(inp)
 
         features = self.preprocessor_net(inp)
-        learned_funcs = self.parametric_func_net(inp[:, 1:2])
+
+        learned_funcs = None
+        if self.n_funcs>0: learned_funcs = self.parametric_func_net(inp)
+                
         u = self.pde_solver_net(features)
 
         return u, learned_funcs 
@@ -45,7 +52,11 @@ class ParametricPINN(nn.Module):
         if self.scale: inp = self.neural_net_scale(inp)
 
         features = self.preprocessor_net(inp)
-        learned_funcs = self.parametric_func_net(inp[:, 1:2])
+
+        learned_funcs = None
+        if self.n_funcs>0: 
+            learned_funcs = self.parametric_func_net(inp)
+            pde_loss = 0.0
 
         # Change this part of the codes for discovering different PDEs
         u = self.pde_solver_net(features)
@@ -53,7 +64,7 @@ class ParametricPINN(nn.Module):
         u_x = diff(u, x)
         u_xx = diff(u_x, x)
 
-        pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx, u_t)
+        if learned_funcs is not None: pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx, u_t)
         mse_loss = F.mse_loss(u, y_train)
 
         return mse_loss, pde_loss
@@ -61,6 +72,26 @@ class ParametricPINN(nn.Module):
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
 
+class FuncNet(nn.Module):
+    def __init__(self, inp_dims=2, n_funcs=2, hidden_dims=50, activation_module=nn.Tanh()):
+        super(FuncNet, self).__init__()
+        self.inp_dims = inp_dims
+        self.activation_module = activation_module
+        self.preprocessor_net= nn.Linear(self.inp_dims, self.inp_dims)
+        self.weight = nn.Parameter(data=torch.tensor(0.5), requires_grad=True)
+        self.neural_net = nn.Sequential(nn.Linear(self.inp_dims, hidden_dims), self.activation_module, 
+                                        nn.Linear(hidden_dims, n_funcs))
+
+    def forward(self, X):
+        if self.inp_dims > 1:
+            features = self.preprocessor_net(X)
+            features = cat(features[:, 0:1]*self.weight, features[:, 1:2]*(1-self.weight))
+            features = self.activation_module(features)
+        else: features = X
+
+        features = self.neural_net(features)
+        return features
+        
 if __name__ == "__main__":
     model = ParametricPINN()
     print("Test init the model passed.")
