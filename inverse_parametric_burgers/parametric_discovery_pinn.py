@@ -64,9 +64,8 @@ class ParametricPINN(nn.Module):
         features = self.preprocessor_net(inp)
 
         learned_funcs = None
-        if self.n_funcs>0: 
-            learned_funcs = self.parametric_func_net(inp)
-            pde_loss = 0.0
+        if self.n_funcs>0: learned_funcs = self.parametric_func_net(inp)
+        else: pde_loss = 0.0
 
         # Change this part of the codes for discovering different PDEs
         u = self.pde_solver_net(features)
