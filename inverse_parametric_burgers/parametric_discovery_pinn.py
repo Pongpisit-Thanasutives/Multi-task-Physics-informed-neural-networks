@@ -100,7 +100,39 @@ class FuncNet(nn.Module):
 
         features = self.neural_net(features)
         return features
-        
+
+# Only for discovering the parametric Burgers' equation
+# No other use
+class BurgerPINN(nn.Module):
+    def __init__(self, model, funcs, epsilon=0.09875935, scale=False, lb=None, ub=None):
+        super(BurgerPINN, self).__init__()
+        self.model = model
+        self.funcs = funcs 
+        self.epsilon = nn.Parameter(torch.tensor(epsilon), requires_grad=True)
+        self.scale = scale
+        self.lb = lb
+        self.ub = ub
+
+    def forward(self, x, t):
+        inp = cat(x, t)
+        if self.scale: inp = self.neural_net_scale(inp)
+        return self.model(inp)
+
+    def loss(self, x, t, y_train):
+        u = self.forward(x, t)
+
+        u_t = diff(u, t)
+        u_x = diff(u, x)
+        u_xx = diff(u_x, x)
+
+        pde_loss = F.mse_loss(torch.squeeze(self.funcs(t=t), -1)*u*u_x+self.epsilon*u_xx, u_t)
+        mse_loss = F.mse_loss(u, y_train)
+
+        return mse_loss, pde_loss
+
+    def neural_net_scale(self, inp):
+        return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
+
 if __name__ == "__main__":
     model = ParametricPINN()
     print("Test init the model passed.")

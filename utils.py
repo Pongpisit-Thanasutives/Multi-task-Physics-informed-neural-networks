@@ -5,9 +5,10 @@ from collections import Counter
 
 # This is not a good import.
 # from sympy import *
-
+from sympy import Symbol, Integer, Float, Add, Mul, Lambda, simplify
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
+from sympytorch import SymPyModule
 
 ### Model-related imports ###
 import torch
