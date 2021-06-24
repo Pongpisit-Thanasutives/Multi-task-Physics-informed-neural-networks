@@ -101,6 +101,28 @@ class FuncNet(nn.Module):
         features = self.neural_net(features)
         return features
 
+# Parent class
+class FinalPINN(nn.Module):
+    def __init__(self, model, funcs, scale=False, lb=None, ub=None):
+        super(FinalPINN, self).__init__()
+        self.model = model
+        self.funcs = nn.ModuleList(funcs)
+        self.scale = scale
+        self.lb = lb
+        self.ub = ub
+
+    def forward(self, x, t):
+        inp = cat(x, t)
+        if self.scale: inp = self.neural_net_scale(inp)
+        return self.model(inp)
+
+    @staticmethod
+    def loss(self, x, t, y_train):
+        pass
+
+    def neural_net_scale(self, inp):
+        return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
+
 # Only for discovering the parametric Burgers' equation
 # No other use
 class BurgerPINN(nn.Module):

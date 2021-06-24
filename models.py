@@ -288,3 +288,14 @@ class ComplexSymPyModule(nn.Module):
         return (torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs()).reshape(-1, 1)
     def complex_coeffs(self,):
         return torch.complex(self.reals, self.imags)
+
+class CoeffLearner(nn.Module):
+    def __init__(self, n_inputs=1, init_data=None):
+        super(CoeffLearner, self).__init__()
+        self.n_inputs = n_inputs
+        if init_data is None: init_data = torch.rand(self.n_inputs, requires_grad=True).reshape(-1, 1)
+        else: assert  self.n_inputs == init_data.shape[0]
+        self.coeffs = nn.Parameter(data=init_data, requires_grad=True)
+
+    def forward(self, X):
+        return torch.matmul(X, self.coeffs)
