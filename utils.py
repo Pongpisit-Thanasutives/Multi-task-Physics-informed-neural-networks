@@ -9,6 +9,7 @@ from sympy import Symbol, Integer, Float, Add, Mul, Lambda, simplify
 from sympy.parsing.sympy_parser import parse_expr
 from sympy.core import evaluate
 from sympytorch import SymPyModule
+import sympytorch
 
 ### Model-related imports ###
 import torch
@@ -74,6 +75,18 @@ def build_exp(program):
     variables = exp.atoms(Symbol)
     
     return exp, variables
+
+# My version of sympytorch.SymPyModule
+class SympyTorch(nn.Module):
+    def __init__(self, expressions):
+        super(SympyTorch, self).__init__()
+        self.mod = sympytorch.SymPyModule(expressions=expressions)                                                                      
+    def forward(self, gd):
+        return torch.squeeze(self.mod(**gd), dim=-1)
+    
+def string2sympytorch(a_string):
+    expr, variables = build_exp(a_string)
+    return SympyTorch(expressions=[expr]), variables
 
 def manipulate_expr(expr):
     for coeff in expr.atoms(Number):
@@ -200,6 +213,21 @@ def diff_flag(index2feature):
 
 def diff(func, inp):
     return grad(func, inp, create_graph=True, retain_graph=True, grad_outputs=torch.ones(func.shape, dtype=func.dtype))[0]
+
+def gradients_dict(u, x, t, feature_names):
+    grads_dict = {}
+    df = diff_flag(feature_names)
+    if feature_names[0].split('_')[0] == 'h': h = u
+    
+    for e in df[0]:
+        grads_dict[e] = eval(e)
+        
+    for e in df[1]:
+        out = u
+        for c in e: out = diff(u, eval(c))
+        grads_dict['u_'+e[::-1]] = out
+        
+    return grads_dict
 
 # Careful that there is no delta[i] = 0
 # Use this function to approximate a higher-order derivative

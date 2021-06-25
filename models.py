@@ -12,7 +12,7 @@ from cplxmodule import cplx
 from cplxmodule.nn import RealToCplx, CplxToReal, CplxToCplx, CplxSequential
 from cplxmodule.nn import CplxLinear, CplxModReLU, CplxDropout, CplxBatchNorm1d
 
-from utils import diff_flag, to_complex_tensor
+from utils import diff_flag, to_complex_tensor, dimension_slicing, string2sympytorch, gradients_dict
 
 def cat(*args): return torch.cat(args, dim=-1)
 
@@ -272,6 +272,14 @@ class SemiSupModel(nn.Module):
         unsup_loss = self.selector.loss(X_selector, y_selector)
         return self.network.uf, unsup_loss
 
+# My version of sympytorch.SymPyModule
+class SympyTorch(nn.Module):
+    def __init__(self, expressions):
+        super(SympyTorch, self).__init__()
+        self.mod = sympytorch.SymPyModule(expressions=expressions)
+    def forward(self, gd):
+        return torch.squeeze(self.mod(**gd), dim=-1)
+
 # Extension of basic sympymodule for supporting operations with complex numbers
 class ComplexSymPyModule(nn.Module):
     def __init__(self, expressions, complex_coeffs=None):
@@ -299,3 +307,15 @@ class CoeffLearner(nn.Module):
 
     def forward(self, X):
         return torch.matmul(X, self.coeffs)
+
+class PartialDerivativeCalculator(nn.Module):
+    def __init__(self, expressions, funcs):
+        super(PartialDerivativeCalculator, self).__init__()
+        mvs = [string2sympytorch(e) for e in expressions]
+        self.mds = nn.ModuleList([e[0] for e in mvs])
+        self.variables = [e[1] for e in mvs]
+        self.n_vars = len(self.variables)
+        self.variables = [sorted(list(map(str, self.variables[i]))) for i in range(self.n_vars)]
+
+    def forward(self, u, x, t):
+        return torch.cat([self.mds[i](gradients_dict(u, x, t, self.variables[i])) for i in range(self.n_vars)], dim=-1)
