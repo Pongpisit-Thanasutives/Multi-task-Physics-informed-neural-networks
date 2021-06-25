@@ -1,6 +1,11 @@
 import os
 from os.path import join
 import shutil
+import subprocess
+
+comand= "bash clean.sh"
+process = subprocess.Popen(comand.split(), stdout=subprocess.PIPE)
+process.communicate()
 
 unwanted_files = ['.DS_store', '.virtual_documents', '.ipynb_checkpoints', '__pycache__']
 print("List of tmp files:", unwanted_files)

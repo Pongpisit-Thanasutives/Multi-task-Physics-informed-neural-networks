@@ -12,7 +12,7 @@ from cplxmodule import cplx
 from cplxmodule.nn import RealToCplx, CplxToReal, CplxToCplx, CplxSequential
 from cplxmodule.nn import CplxLinear, CplxModReLU, CplxDropout, CplxBatchNorm1d
 
-from utils import diff_flag, to_complex_tensor, dimension_slicing, string2sympytorch, gradients_dict
+from utils import diff_flag, to_complex_tensor, dimension_slicing, string2sympytorch, gradients_dict, build_exp
 
 def cat(*args): return torch.cat(args, dim=-1)
 
@@ -302,8 +302,8 @@ class CoeffLearner(nn.Module):
         super(CoeffLearner, self).__init__()
         self.n_inputs = n_inputs
         if init_data is None: init_data = torch.rand(self.n_inputs, requires_grad=True).reshape(-1, 1)
-        else: assert  self.n_inputs == init_data.shape[0]
-        self.coeffs = nn.Parameter(data=init_data, requires_grad=True)
+        else: assert  self.n_inputs == len(init_data)
+        self.coeffs = nn.Parameter(data=torch.FloatTensor(init_data).reshape(-1, 1), requires_grad=True)
 
     def forward(self, X):
         return torch.matmul(X, self.coeffs)
@@ -316,6 +316,24 @@ class PartialDerivativeCalculator(nn.Module):
         self.variables = [e[1] for e in mvs]
         self.n_vars = len(self.variables)
         self.variables = [sorted(list(map(str, self.variables[i]))) for i in range(self.n_vars)]
+        
+        # Functions depend on (x, t)
+        self.funcs = nn.ModuleList()
+        self.funcs_variables = []
+        for s in funcs:
+            expr, var = build_exp(s)
+            if len(var) > 0: self.funcs.append(SympyTorch(expressions=[expr]))
+            else: self.funcs.append(CoeffLearner(1, init_data=[float(s)]))
+            self.funcs_variables.append(list(map(str, var)))
 
     def forward(self, u, x, t):
-        return torch.cat([self.mds[i](gradients_dict(u, x, t, self.variables[i])) for i in range(self.n_vars)], dim=-1)
+        out = []
+        for i in range(self.n_vars):
+            computed = self.mds[i](gradients_dict(u, x, t, self.variables[i]))
+            if i < len(self.funcs):
+                feed_dict = {}
+                for e in self.funcs_variables[i]: feed_dict[e] = eval(e) 
+                if len(feed_dict) > 0: computed = computed*self.funcs[i](feed_dict)
+                else: computed = self.funcs[i](computed)
+            out.append(computed)
+        return torch.cat(out, dim=-1)
