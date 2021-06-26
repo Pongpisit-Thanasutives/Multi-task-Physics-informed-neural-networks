@@ -59,7 +59,6 @@ def pickle_load(path):
     return obj
 
 def build_exp(program):
-    print("Please ensure that all coefs are different")
     x = Symbol("x"); y = Symbol("y")
     
     local_dict = {
@@ -147,6 +146,9 @@ def load_weights(a_model, a_path, mode="cpu"):
     except: print("Cannot load the model' weights properly.")
     return a_model
 
+def save(a_model, path):
+    return torch.save(a_model.state_dict(), path)
+
 def is_nan(a_tensor):
     return torch.isnan(a_tensor).any().item()
 
@@ -224,7 +226,7 @@ def gradients_dict(u, x, t, feature_names):
         
     for e in df[1]:
         out = u
-        for c in e: out = diff(u, eval(c))
+        for c in e: out = diff(out, eval(c))
         grads_dict['u_'+e[::-1]] = out
         
     return grads_dict

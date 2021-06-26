@@ -1,4 +1,5 @@
 import sys; sys.path.insert(0, "../"); from utils import *
+from models import SympyTorch, PartialDerivativeCalculator, CoeffLearner
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -101,12 +102,11 @@ class FuncNet(nn.Module):
         features = self.neural_net(features)
         return features
 
-# Parent class
-class FinalPINN(nn.Module):
-    def __init__(self, model, funcs, scale=False, lb=None, ub=None):
-        super(FinalPINN, self).__init__()
+class FinalParametricPINN(nn.Module):
+    def __init__(self, model, pde_terms, func_terms, scale=False, lb=None, ub=None):
+        super(FinalParametricPINN, self).__init__()
         self.model = model
-        self.funcs = nn.ModuleList(funcs)
+        self.pdc = PartialDerivativeCalculator(pde_terms, func_terms)
         self.scale = scale
         self.lb = lb
         self.ub = ub
@@ -116,9 +116,9 @@ class FinalPINN(nn.Module):
         if self.scale: inp = self.neural_net_scale(inp)
         return self.model(inp)
 
-    @staticmethod
     def loss(self, x, t, y_train):
-        pass
+        u = self.forward(x, t)
+        return F.mse_loss(diff(u, t), self.pdc(u, x, t)), F.mse_loss(u, y_train)
 
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
