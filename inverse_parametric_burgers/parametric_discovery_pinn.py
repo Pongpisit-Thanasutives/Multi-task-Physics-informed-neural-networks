@@ -1,5 +1,5 @@
 import sys; sys.path.insert(0, "../"); from utils import *
-from models import SympyTorch, PartialDerivativeCalculator, CoeffLearner
+from models import SympyTorch, PartialDerivativeCalculator, CoeffLearner, UncertaintyWeightedLoss
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -103,10 +103,14 @@ class FuncNet(nn.Module):
         return features
 
 class FinalParametricPINN(nn.Module):
-    def __init__(self, model, pde_terms, func_terms, scale=False, lb=None, ub=None):
+    def __init__(self, model, pde_terms, func_terms, uncert=False, scale=False, lb=None, ub=None):
         super(FinalParametricPINN, self).__init__()
         self.model = model
         self.pdc = PartialDerivativeCalculator(pde_terms, func_terms)
+        self.loss_weightor = None
+        self.is_uncert = uncert
+        self.loss_weightor = None
+        if self.is_uncert: self.loss_weightor = UncertaintyWeightedLoss(2)
         self.scale = scale
         self.lb = lb
         self.ub = ub
@@ -118,7 +122,10 @@ class FinalParametricPINN(nn.Module):
 
     def loss(self, x, t, y_train):
         u = self.forward(x, t)
-        return F.mse_loss(diff(u, t), self.pdc(u, x, t)), F.mse_loss(u, y_train)
+        pde_loss = F.mse_loss(diff(u, t), self.pdc(u, x, t))
+        mse_loss = F.mse_loss(u, y_train)
+        if self.is_uncert: return self.loss_weightor(mse_loss, pde_loss)
+        else: return [mse_loss, pde_loss]
 
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)

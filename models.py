@@ -272,6 +272,30 @@ class SemiSupModel(nn.Module):
         unsup_loss = self.selector.loss(X_selector, y_selector)
         return self.network.uf, unsup_loss
 
+# Using uncerts to weight each PDE loss function
+class UncertaintyWeightedLoss(nn.Module):
+    """automatically weighted multi-task loss
+
+    Params：
+        num: int，the number of loss
+        x: multi-task loss
+    Examples：
+        loss1=1
+        loss2=2
+        awl = UncertaintyWeightedLoss(2)
+        loss_sum = awl(loss1, loss2)
+    """
+    def __init__(self, num=2):
+        super(UncertaintyWeightedLoss, self).__init__()
+        params = torch.ones(num, requires_grad=True)
+        self.params = torch.nn.Parameter(params)
+
+    def forward(self, *x):
+        loss_sum = []
+        for i, loss in enumerate(x):
+            loss_sum.append(0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2))
+        return loss_sum
+
 # My version of sympytorch.SymPyModule
 class SympyTorch(nn.Module):
     def __init__(self, expressions):
