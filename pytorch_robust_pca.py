@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -63,7 +64,7 @@ class R_pca(nn.Module):
         return Lk, Sk
 
 class RobustPCANeuralNet(nn.Module):
-    def __init__(self, input_tensor, mu=None, lmbda=None):
+    def __init__(self, input_tensor, mu=None, lmbda=None, lr=None):
         super(RobustPCANeuralNet, self).__init__()
 
         self.input_shape = input_tensor.shape
@@ -74,11 +75,15 @@ class RobustPCANeuralNet(nn.Module):
         if lmbda is not None: self.lmbda = lmbda
         else: self.lmbda = 1 / torch.sqrt(torch.tensor(self.input_shape).max())
 
+        if lr is not None: self.lr = lr
+        else: self.lr = 1e-5
+
         print("The settings are ...")
         print("Lambda:", self.lmbda)
         print("Inverse mu:", self.inv_mu)
 
         self.S = nn.Parameter(data=torch.randn(self.input_shape).float(), requires_grad=True)
+        self.is_converged = False
 
     def forward(self, M):
         return M - self.S
@@ -86,7 +91,12 @@ class RobustPCANeuralNet(nn.Module):
     # Call this only after calling the forward function
     # Loss is nan -> if torch.sum(torch.isnan(model.S.grad)) > 0: opt.zero_grad(); break
     def loss(self, M, L):
-        return torch.linalg.matrix_norm(L, ord='nuc') + self.lmbda*Norm(self.S, ord=1) + self.inv_mu*Norm(M-L-self.S, ord='fro')
+        return self.lr*(torch.linalg.matrix_norm(L, ord='nuc') + self.lmbda*Norm(self.S, ord=1) + self.inv_mu*Norm(M-L-self.S, ord='fro'))
+
+    def is_terminated(self, ):
+        self.is_converged = torch.sum(torch.isnan(self.S.grad)) > 0
+        return self.is_converged
+
 
 if __name__ == "__main__":
     import numpy as np
