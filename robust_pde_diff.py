@@ -593,7 +593,7 @@ def RobustPCA(U, lam_2 = 1e-3):
     return Z, E
 
 
-def DLrSR(R, Ut, xi_true, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
+def DLrSR(R, Ut, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
     nx, nt    = Ut.shape[0], Ut.shape[1]
     # for robust low-rank PCA
     Y2        = Ut
