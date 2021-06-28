@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.linalg import norm as Norm
 
 # This module has 0 param, and act like a function
 class R_pca(nn.Module):
@@ -10,12 +11,12 @@ class R_pca(nn.Module):
         self.S = torch.zeros(self.D.shape)
         self.Y = torch.zeros(self.D.shape)
 
-        if mu: self.mu = mu
+        if mu is not None: self.mu = mu
         else: self.mu = torch.prod(torch.tensor(self.D.shape)) / (4*torch.linalg.norm(self.D, ord=1))
             
         self.mu_inv = 1 / self.mu
 
-        if lmbda: self.lmbda = lmbda
+        if lmbda is not None: self.lmbda = lmbda
         else: self.lmbda = 1 / torch.sqrt(torch.tensor(self.D.shape).max())
             
         self.verbose = verbose
@@ -60,6 +61,32 @@ class R_pca(nn.Module):
         self.S = Sk
         
         return Lk, Sk
+
+class RobustPCANeuralNet(nn.Module):
+    def __init__(self, input_tensor, mu=None, lmbda=None):
+        super(RobustPCANeuralNet, self).__init__()
+
+        self.input_shape = input_tensor.shape
+        if mu is not None: self.mu = mu
+        else: self.mu = torch.prod(torch.tensor(self.input_shape)) / (4*Norm(input_tensor, ord=1))
+        self.inv_mu = 1.0/self.mu
+
+        if lmbda is not None: self.lmbda = lmbda
+        else: self.lmbda = 1 / torch.sqrt(torch.tensor(self.input_shape).max())
+
+        print("The settings are ...")
+        print("Lambda:", self.lmbda)
+        print("Inverse mu:", self.inv_mu)
+
+        self.S = nn.Parameter(data=torch.randn(self.input_shape).float(), requires_grad=True)
+
+    def forward(self, M):
+        return M - self.S
+    
+    # Call this only after calling the forward function
+    # Loss is nan -> if torch.sum(torch.isnan(model.S.grad)) > 0: opt.zero_grad(); break
+    def loss(self, M, L):
+        return torch.linalg.matrix_norm(L, ord='nuc') + self.lmbda*Norm(self.S, ord=1) + self.inv_mu*Norm(M-L-self.S, ord='fro')
 
 if __name__ == "__main__":
     import numpy as np
