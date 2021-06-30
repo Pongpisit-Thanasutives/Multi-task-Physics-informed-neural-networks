@@ -326,7 +326,7 @@ def print_pde(w, rhs_description, ut = 'u_t'):
             first = False
     print(pde)
 
-def create_groups(Theta, Ut, spatial_dims, time_dims):
+def create_groups(Theta, Ut, spatial_dims, time_dims, by='location'):
     Theta_grouped = [np.real(Theta[j*spatial_dims:(j+1)*spatial_dims,:]) for j in range(time_dims)]
     Ut_grouped = [np.real(Ut[j*spatial_dims:(j+1)*spatial_dims]) for j in range(time_dims)] 
     print("The outputs can be used by the TrainSGTRidge function.")
