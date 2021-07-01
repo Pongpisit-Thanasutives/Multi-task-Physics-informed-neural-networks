@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 class ParametricPINN(nn.Module):
-    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), n_funcs=2, scale=False, lb=None, ub=None):
+    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), n_funcs=2, scale=False, lb=None, ub=None, eq_name="burger"):
         super(ParametricPINN, self).__init__()
         # The default config is only for the Burgers' equation.
         self.inp_dims = inp_dims    
@@ -17,6 +17,9 @@ class ParametricPINN(nn.Module):
         self.scale = scale
         self.lb = lb
         self.ub = ub
+        self.eq_name = eq_name
+        # if self.eq_name == "burger": self.n_funcs = 2
+        # elif self.eq_name == "ad": self.n_funcs = 3
 
         self.preprocessor_net = nn.Sequential(nn.Linear(inp_dims, hidden_dims), self.activation_module, 
                                               nn.Linear(hidden_dims, hidden_dims), self.activation_module)
@@ -30,6 +33,9 @@ class ParametricPINN(nn.Module):
             self.parametric_func_net = FuncNet(inp_dims=2, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
                                                 activation_module=self.activation_module)
 
+            if self.eq_name == "ad": self.parametric_func_net = FuncNet(inp_dims=1, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
+                                                                        activation_module=self.activation_module)
+
         self.pde_solver_net = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), self.activation_module,
                                             nn.Linear(hidden_dims, hidden_dims), self.activation_module,
                                             nn.Linear(hidden_dims, hidden_dims), self.activation_module,
@@ -42,12 +48,15 @@ class ParametricPINN(nn.Module):
         features = self.preprocessor_net(inp)
 
         learned_funcs = None
-        if self.n_funcs>0: learned_funcs = self.parametric_func_net(inp)
+        if self.n_funcs>0:
+            if self.eq_name == "ad": learned_funcs = self.parametric_func_net(x)
+            else: learned_funcs = self.parametric_func_net(inp)
                 
         u = self.pde_solver_net(features)
 
         return u, learned_funcs 
 
+    # This func should depend on the self.eq_name as well.
     def gradients_dict(self, x, t):
         inp = cat(x, t)
         if self.scale: inp = self.neural_net_scale(inp)
@@ -65,7 +74,9 @@ class ParametricPINN(nn.Module):
         features = self.preprocessor_net(inp)
 
         learned_funcs = None
-        if self.n_funcs>0: learned_funcs = self.parametric_func_net(inp)
+        if self.n_funcs>0: 
+            if self.eq_name == "ad": learned_funcs = self.parametric_func_net(x)
+            else: learned_funcs = self.parametric_func_net(inp)
         else: pde_loss = 0.0
 
         # Change this part of the codes for discovering different PDEs
@@ -74,8 +85,13 @@ class ParametricPINN(nn.Module):
         u_x = diff(u, x)
         u_xx = diff(u_x, x)
 
-        if learned_funcs is not None: pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx, u_t)
         mse_loss = F.mse_loss(u, y_train)
+
+        if learned_funcs is not None: 
+            if self.eq_name == "burger":
+                pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx, u_t)
+            elif self.eq_name == "ad":
+                pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u + learned_funcs[:, 1:2]*u_x + learned_funcs[:, 2:3]*u_xx, u_t)
 
         return mse_loss, pde_loss
     

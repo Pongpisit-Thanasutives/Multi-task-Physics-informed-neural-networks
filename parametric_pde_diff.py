@@ -330,7 +330,7 @@ def create_groups(Theta, Ut, spatial_dims, time_dims, by='time'):
     if by == 'time':
         Theta_grouped = [np.real(Theta[j*spatial_dims:(j+1)*spatial_dims,:]) for j in range(time_dims)]
         Ut_grouped = [np.real(Ut[j*spatial_dims:(j+1)*spatial_dims]) for j in range(time_dims)] 
-    elif by == 'location'
+    elif by == 'location':
         Theta_grouped = [np.real(Theta[time_dims*np.arange(spatial_dims)+j,:]) for j in range(spatial_dims)]
         Ut_grouped = [np.real(u_t[time_dims*np.arange(spatial_dims)+j]) for j in range(spatial_dims)]
     else:
