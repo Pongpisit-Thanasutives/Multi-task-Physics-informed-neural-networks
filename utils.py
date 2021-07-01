@@ -70,7 +70,6 @@ def build_exp(program, trainable_one=True):
     
     exp = simplify(parse_expr(str(program), local_dict=local_dict))
     if trainable_one:
-        print("-1.0  and 1.0 will be trainable paramters. This could be stoped by setting trainable_one=False")
         exp = exp.subs(Integer(-1), Float(-1.0, precision=53))
         exp = exp.subs(Integer(+1), Float(1.0, precision=53))
     variables = exp.atoms(Symbol)
