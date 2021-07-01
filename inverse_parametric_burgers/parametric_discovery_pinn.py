@@ -18,8 +18,6 @@ class ParametricPINN(nn.Module):
         self.lb = lb
         self.ub = ub
         self.eq_name = eq_name
-        # if self.eq_name == "burger": self.n_funcs = 2
-        # elif self.eq_name == "ad": self.n_funcs = 3
 
         self.preprocessor_net = nn.Sequential(nn.Linear(inp_dims, hidden_dims), self.activation_module, 
                                               nn.Linear(hidden_dims, hidden_dims), self.activation_module)
@@ -29,13 +27,13 @@ class ParametricPINN(nn.Module):
             # I should change from 1 -> 2 for being more real.
 #           self.parametric_func_net = nn.Sequential(nn.Linear(2, hidden_dims), self.activation_module,
 #                                                    nn.Linear(hidden_dims, self.n_funcs))
-
-            # Regular config
+            # Burger config
             self.parametric_func_net = FuncNet(inp_dims=2, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
                                                 activation_module=self.activation_module)
-            # For more specific equation
-            if self.eq_name == "ad": self.parametric_func_net = FuncNet(inp_dims=1, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
-                                                                        activation_module=self.activation_module)
+            # For more specific equations with known input variable.
+            if self.eq_name == "ad" or self.eq_name == "ks": self.parametric_func_net = FuncNet(inp_dims=1, n_funcs=self.n_funcs, 
+                                                                                                hidden_dims=hidden_dims,
+                                                                                                activation_module=self.activation_module)
 
         self.pde_solver_net = nn.Sequential(nn.Linear(hidden_dims, hidden_dims), self.activation_module,
                                             nn.Linear(hidden_dims, hidden_dims), self.activation_module,
@@ -50,7 +48,7 @@ class ParametricPINN(nn.Module):
 
         learned_funcs = None
         if self.n_funcs>0:
-            if self.eq_name == "ad": learned_funcs = self.parametric_func_net(x)
+            if self.eq_name == "ad" or self.eq_name == "ks": learned_funcs = self.parametric_func_net(x)
             else: learned_funcs = self.parametric_func_net(inp)
                 
         u = self.pde_solver_net(features)
@@ -66,7 +64,13 @@ class ParametricPINN(nn.Module):
         u_t = diff(u, t)
         u_x = diff(u, x)
         u_xx = diff(u_x, x)
-        return {'u':u, 'u_t':u_t, 'u_x':u_x, 'u_xx':u_xx}
+        dic = {'u':u, 'u_t':u_t, 'u_x':u_x, 'u_xx':u_xx}
+        if self.eq_name == "ks": 
+            u_xxx = diff(u_xx, x)
+            u_xxxx = diff(u_xxx, x)
+            dic['u_xxx'] = u_xxx
+            dic['u_xxxx'] = u_xxxx
+        return dic
 
     def loss(self, x, t, y_train):
         inp = cat(x, t)
