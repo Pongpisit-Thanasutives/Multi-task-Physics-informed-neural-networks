@@ -332,7 +332,7 @@ class CoeffLearner(nn.Module):
         return self.coeffs*X
 
 class PartialDerivativeCalculator(nn.Module):
-    def __init__(self, expressions, funcs):
+    def __init__(self, expressions, funcs, trainable_one=True):
         super(PartialDerivativeCalculator, self).__init__()
         mvs = [string2sympytorch(e) for e in expressions]
         self.mds = nn.ModuleList([e[0] for e in mvs])
@@ -344,7 +344,7 @@ class PartialDerivativeCalculator(nn.Module):
         self.funcs = nn.ModuleList()
         self.funcs_variables = []
         for s in funcs:
-            expr, var = build_exp(s)
+            expr, var = build_exp(s, trainable_one=trainable_one)
             if len(var) > 0: self.funcs.append(SympyTorch(expressions=[expr]))
             elif len(var) == 0: self.funcs.append(CoeffLearner(init_data=float(s)))
             else: print("Error")

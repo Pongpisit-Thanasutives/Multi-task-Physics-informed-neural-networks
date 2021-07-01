@@ -58,7 +58,7 @@ def pickle_load(path):
     print('Loaded from', str(path))
     return obj
 
-def build_exp(program):
+def build_exp(program, trainable_one=True):
     x = Symbol("x"); y = Symbol("y")
     
     local_dict = {
@@ -69,8 +69,10 @@ def build_exp(program):
     }
     
     exp = simplify(parse_expr(str(program), local_dict=local_dict))
-    exp = exp.subs(Integer(-1), Float(-1.0, precision=53))
-    exp = exp.subs(Integer(+1), Float(1.0, precision=53))
+    if trainable_one:
+        print("-1.0  and 1.0 will be trainable paramters. This could be stoped by setting trainable_one=False")
+        exp = exp.subs(Integer(-1), Float(-1.0, precision=53))
+        exp = exp.subs(Integer(+1), Float(1.0, precision=53))
     variables = exp.atoms(Symbol)
     
     return exp, variables
@@ -142,7 +144,7 @@ def load_weights(a_model, a_path, mode="cpu"):
     elif mode=="gpu": sd = gpu_load(a_path)
     try:
         a_model.load_state_dict(sd)
-        print("Load the model's weights properly")
+        print("Loaded the model's weights properly")
     except: print("Cannot load the model' weights properly.")
     return a_model
 

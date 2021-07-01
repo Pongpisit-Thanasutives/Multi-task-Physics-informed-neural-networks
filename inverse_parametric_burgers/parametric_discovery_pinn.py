@@ -30,9 +30,10 @@ class ParametricPINN(nn.Module):
 #           self.parametric_func_net = nn.Sequential(nn.Linear(2, hidden_dims), self.activation_module,
 #                                                    nn.Linear(hidden_dims, self.n_funcs))
 
+            # Regular config
             self.parametric_func_net = FuncNet(inp_dims=2, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
                                                 activation_module=self.activation_module)
-
+            # For more specific equation
             if self.eq_name == "ad": self.parametric_func_net = FuncNet(inp_dims=1, n_funcs=self.n_funcs, hidden_dims=hidden_dims,
                                                                         activation_module=self.activation_module)
 
@@ -119,10 +120,10 @@ class FuncNet(nn.Module):
         return features
 
 class FinalParametricPINN(nn.Module):
-    def __init__(self, model, pde_terms, func_terms, uncert=False, scale=False, lb=None, ub=None):
+    def __init__(self, model, pde_terms, func_terms, uncert=False, scale=False, lb=None, ub=None, trainable_one=True):
         super(FinalParametricPINN, self).__init__()
         self.model = model
-        self.pdc = PartialDerivativeCalculator(pde_terms, func_terms)
+        self.pdc = PartialDerivativeCalculator(pde_terms, func_terms, trainable_one=trainable_one)
         self.loss_weightor = None
         self.is_uncert = uncert
         self.loss_weightor = None
