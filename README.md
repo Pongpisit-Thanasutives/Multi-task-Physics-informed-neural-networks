@@ -14,4 +14,4 @@ See /inverse_qho for the Quantum Harmonic Oscillator (complex-valued) PDE discov
 
 For a small (lower data samples) version of KdV and KS, check out /inverse_small_KdV and /inverse_small_KS
 
-This repo also additionally include the ladder networks (https://arxiv.org/abs/1507.02672) simple implementation in pytorch.
+This repo also additionally include the ladder networks (https://arxiv.org/abs/1507.02672) simple implementation in pytorch. See ladder.py
