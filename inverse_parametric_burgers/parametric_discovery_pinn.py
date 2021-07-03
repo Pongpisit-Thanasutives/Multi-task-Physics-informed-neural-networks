@@ -80,7 +80,7 @@ class ParametricPINN(nn.Module):
 
         learned_funcs = None
         if self.n_funcs>0: 
-            if self.eq_name == "ad": learned_funcs = self.parametric_func_net(x)
+            if self.eq_name == "ad" or self.eq_name == "ks": learned_funcs = self.parametric_func_net(x)
             else: learned_funcs = self.parametric_func_net(inp)
         else: pde_loss = 0.0
 
@@ -97,6 +97,10 @@ class ParametricPINN(nn.Module):
                 pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx, u_t)
             elif self.eq_name == "ad":
                 pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u + learned_funcs[:, 1:2]*u_x + learned_funcs[:, 2:3]*u_xx, u_t)
+            elif self.eq_name == "ks":
+                u_xxx = diff(u_xx, x)
+                u_xxxx = diff(u_xxx, x)
+                pde_loss = F.mse_loss(learned_funcs[:, 0:1]*u*u_x + learned_funcs[:, 1:2]*u_xx + learned_funcs[:, 2:3]*u_xxxx, u_t)
 
         return mse_loss, pde_loss
     
