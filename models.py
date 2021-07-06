@@ -306,16 +306,21 @@ class SympyTorch(nn.Module):
 
 # Extension of basic sympymodule for supporting operations with complex numbers
 class ComplexSymPyModule(nn.Module):
-    def __init__(self, expressions, complex_coeffs=None):
+    def __init__(self, expressions, complex_coeffs=None, learnable_parts=[True, True]):
         super(ComplexSymPyModule, self).__init__()
         self.sympymodule = sympytorch.SymPyModule(expressions=expressions)
         if complex_coeffs is None: 
             self.reals = nn.Parameter(torch.rand(len(expressions), 1))
             self.imags = nn.Parameter(torch.rand(len(expressions), 1))
         else:
-            complex_coeffs = to_complex_tensor(complex_coeffs)
-            self.reals = nn.Parameter(complex_coeffs.real.reshape(-1, 1))
-            self.imags = nn.Parameter(complex_coeffs.imag.reshape(-1, 1))
+            complex_tensor_coeffs = to_complex_tensor(complex_coeffs)
+            self.reals = nn.Parameter(complex_tensor_coeffs.real.reshape(-1, 1))
+            self.imags = nn.Parameter(complex_tensor_coeffs.imag.reshape(-1, 1))
+        if learnable_parts[0] == False:
+            self.reals.requires_grad_(False)
+        if learnable_parts[1] == False:
+            self.imags.requires_grad_(False)
+                    
     def forward(self, kwargs):
         return (torch.squeeze(self.sympymodule(**kwargs)).type(torch.complex64)@self.complex_coeffs()).reshape(-1, 1)
     def complex_coeffs(self,):

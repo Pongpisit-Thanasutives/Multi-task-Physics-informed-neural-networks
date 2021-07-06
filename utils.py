@@ -142,9 +142,14 @@ def load_weights(a_model, a_path, mode="cpu"):
     if mode=="cpu": sd = cpu_load(a_path)
     elif mode=="gpu": sd = gpu_load(a_path)
     try:
-        a_model.load_state_dict(sd)
+        a_model.load_state_dict(sd, strict=True)
         print("Loaded the model's weights properly")
-    except: print("Cannot load the model' weights properly.")
+    except: 
+        try: 
+            a_model.load_state_dict(sd, strict=False)
+            print("Loaded the model's weights with strict=False")
+        except:
+            print("Cannot load the model' weights properly.")
     return a_model
 
 def save(a_model, path):
