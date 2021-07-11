@@ -366,3 +366,53 @@ class PartialDerivativeCalculator(nn.Module):
             else: print("Error")
             out = out+computed
         return out
+   
+# return reconstruction error + KL divergence losses
+def vae_loss(recon_x, x, mu, log_var):
+    BCE = F.mse_loss(recon_x, x, reduction='sum')
+    KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+    return BCE + KLD
+
+class VAE(nn.Module):
+    def __init__(self, x_dim=2, h_dim=32, z_dim=2):
+        super(VAE, self).__init__()
+        
+        # encoder part
+        self.fc = nn.Linear(x_dim, h_dim)
+        self.ec_mu = nn.Linear(h_dim, z_dim)
+        self.ec_logvar = nn.Linear(h_dim, z_dim)
+        # decoder part
+        self.dc1 = nn.Linear(z_dim, h_dim)
+        self.dc2 = nn.Linear(h_dim, x_dim)
+        
+    def encoder(self, x):
+        h = F.relu(self.fc(x))
+        return self.ec_mu(h), self.ec_logvar(h) # mu, log_var
+    
+    def sampling(self, mu, log_var):
+        std = torch.exp(0.5*log_var)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu) # return z sample
+        
+    def decoder(self, z):
+        h = F.relu(self.dc1(z))
+        h = self.dc2(h)
+        return h
+    
+    def forward(self, x):
+        mu, log_var = self.encoder(x)
+        z = self.sampling(mu, log_var)
+        return self.decoder(z), mu, log_var
+
+def ae_loss(recon_X, X, include_l1=0.0, reduction="mean"):
+    output_loss = F.mse_loss(recon_X, X, reduction=reduction)
+    if include_l1 > 0.0: output_loss = output_loss + include_l1*F.l1_loss(recon_X, X, reduction=reduction) 
+    return output_loss
+
+class AutoEncoder(nn.Module):
+    def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU()):
+        super(AutoEncoder, self).__init__()
+        self.mlp = nn.Sequential(nn.Linear(x_dim, h_dim), activation, nn.Linear(h_dim, x_dim))
+    def forward(self, X, split=False):
+        if split: return dimension_slicing(self.mlp(X))
+        return self.mlp(X)
