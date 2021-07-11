@@ -1,5 +1,7 @@
 import numpy as np
 from numpy import linalg as LA
+from numpy.linalg import norm as Norm
+# from parametric_pde_find import TrainSGTRidge
 import scipy.sparse as sparse
 from scipy.sparse import csc_matrix
 from scipy.sparse import dia_matrix
@@ -51,7 +53,7 @@ def TikhonovDiff(f, dx, lam, d = 1):
     D = sparse.diags([e, -e], [1, 0], shape=(n-1, n)).todense() / dx
     
     # Invert to find derivative
-    g = np.squeeze(np.asarray(np.linalg.lstsq(A.T.dot(A) + lam*D.T.dot(D),A.T.dot(f), rcond=None)[0]))
+    g = np.squeeze(np.asarray(np.linalg.lstsq(A.T.dot(A) + lam*D.T.dot(D),A.T.dot(f))[0]))
     
     if d == 1: return g
 
@@ -260,7 +262,6 @@ def build_linear_system(u, dt, dx, D = 3, P = 3,time_diff = 'poly',space_diff = 
     """
     Constructs a large linear system to use in later regression for finding PDE.  
     This function works when we are not subsampling the data or adding in any forcing.
-    ถ้าใช้ Poly diff แล้ว Dimension ที่ได้ออกมาจะไม่เท่าเดิม time_dims = time_dims - double_width, and spatial_dims = spatial_dims - double_width
 
     Input:
         Required:
@@ -398,6 +399,150 @@ def print_pde(w, rhs_description, ut = 'u_t'):
             first = False
     print(pde)
 
+
+
+##################################################################################
+##################################################################################
+#
+# Functions for Schrodinger equation.
+#               
+##################################################################################
+##################################################################################
+
+def build_schsystem(u, n, m, potential, dt, dx):
+    # Build Library of Candidate Terms
+    ut = np.zeros((m,n), dtype=np.complex64)
+    ux = np.zeros((m,n), dtype=np.complex64)
+    uxx = np.zeros((m,n), dtype=np.complex64)
+    uxxx = np.zeros((m,n), dtype=np.complex64)
+
+    for i in range(n):
+       ut[:,i] = FiniteDiff(u[:,i], dt, 1)
+    for i in range(m):
+       ux[i,:] = FiniteDiff(u[i,:], dx, 1)
+       uxx[i,:] = FiniteDiff(u[i,:], dx, 2)
+       uxxx[i,:] = FiniteDiff(u[i,:], dx, 3)
+    
+    ut = np.reshape(ut, (n*m,1), order='F')
+    ux = np.reshape(ux, (n*m,1), order='F')
+    uxx = np.reshape(uxx, (n*m,1), order='F')
+    uxxx = np.reshape(uxxx, (n*m,1), order='F')
+    X_ders = np.hstack([np.ones((n*m,1)),ux,uxx,uxxx])
+    X_data = np.hstack([np.reshape(u, (n*m,1), order='F'), 
+                    np.reshape(abs(u), (n*m,1), order='F'), 
+                    np.reshape(potential, (n*m,1), order='F')])
+    derivatives_description = ['','u_{x}','u_{xx}', 'u_{xxx}']
+
+    X, descr = build_Theta(X_data, X_ders, derivatives_description, 2, data_description = ['u','|u|','V'])
+
+    return X, ut, descr
+
+def build_noise_schsystem(un, n, m, potential, dt, dx):
+    width_x = 10
+    width_t = 10
+    deg = 6
+
+    m2 = m-2*width_t
+    n2 = n-2*width_x
+
+    utn = np.zeros((m2,n2), dtype=np.complex64)
+    uxn = np.zeros((m2,n2), dtype=np.complex64)
+    uxxn = np.zeros((m2,n2), dtype=np.complex64)
+    uxxxn = np.zeros((m2,n2), dtype=np.complex64)
+
+    for i in range(n2):
+       utn[:,i] = PolyDiff(np.real(un[:,i+width_x]), dt*np.arange(m), deg = deg, width = width_t)[:,0]
+       utn[:,i] = utn[:,i]+1j*PolyDiff(np.imag(un[:,i+width_x]), dt*np.arange(m), deg = deg, width = width_t)[:,0]
+
+    for i in range(m2):
+       x_derivatives = PolyDiff(np.real(un[i+width_t,:]), dx*np.arange(n), deg = deg, diff = 3, width = width_x)
+       x_derivatives = x_derivatives+1j*PolyDiff(np.imag(un[i+width_t,:]), dx*np.arange(n), deg = deg, diff = 3, width = width_x)
+       uxn[i,:] = x_derivatives[:,0]
+       uxxn[i,:] = x_derivatives[:,1]
+       uxxxn[i,:] = x_derivatives[:,2]
+
+    utn = np.reshape(utn, (n2*m2,1), order='F')
+    uxn = np.reshape(uxn, (n2*m2,1), order='F')
+    uxxn = np.reshape(uxxn, (n2*m2,1), order='F')
+    uxxxn = np.reshape(uxxxn, (n2*m2,1), order='F')
+    Xn_ders = np.hstack([np.ones((n2*m2,1)),uxn,uxxn,uxxxn])
+    Xn_data = np.hstack([np.reshape(un[width_t:m-width_t,width_x:n-width_x], (n2*m2,1), order='F'),
+                     np.reshape(abs(un[width_t:m-width_t,width_x:n-width_x]), (n2*m2,1), order='F'),
+                     np.reshape(potential[width_t:m-width_t,width_x:n-width_x], (n2*m2,1), order='F')])
+    derivatives_description = ['','u_{x}','u_{xx}', 'u_{xxx}']
+
+
+    Xn, descr= build_Theta(Xn_data, Xn_ders, derivatives_description, 2)
+
+    return Xn, utn, descr
+
+
+
+###########################################################################################################
+#################for NLS equation
+
+def build_nlssystem(u, n, m, dt, dx):
+
+    ut = np.zeros((m,n), dtype=np.complex64)
+    ux = np.zeros((m,n), dtype=np.complex64)
+    uxx = np.zeros((m,n), dtype=np.complex64)
+    uxxx = np.zeros((m,n), dtype=np.complex64)
+
+    for i in range(n):
+       ut[:,i] = FiniteDiff(u[:,i], dt, 1)
+    for i in range(m):
+       ux[i,:] = FiniteDiff(u[i,:], dx, 1)
+       uxx[i,:] = FiniteDiff(u[i,:], dx, 2)
+       uxxx[i,:] = FiniteDiff(u[i,:], dx, 3)
+    
+    ut = np.reshape(ut, (n*m,1), order='F')
+    ux = np.reshape(ux, (n*m,1), order='F')
+    uxx = np.reshape(uxx, (n*m,1), order='F')
+    uxxx = np.reshape(uxxx, (n*m,1), order='F')
+    X_ders = np.hstack([np.ones((n*m,1)),ux,uxx,uxxx])
+    X_data = np.hstack([np.reshape(u, (n*m,1), order='F'), np.reshape(abs(u), (n*m,1), order='F')])
+    derivatives_description = ['','u_{x}','u_{xx}', 'u_{xxx}']
+
+    X, rhs_des = build_Theta(X_data, X_ders, derivatives_description, 3, data_description = ['u','|u|'])
+
+    return ut, X, rhs_des
+
+def build_noise_nlssystem(un, n, m, dt, dx):
+    width_x = 10
+    width_t = 10
+    deg = 4
+
+    m2 = m-2*width_t
+    n2 = n-2*width_x
+
+    utn = np.zeros((m2,n2), dtype=np.complex64)
+    uxn = np.zeros((m2,n2), dtype=np.complex64)
+    uxxn = np.zeros((m2,n2), dtype=np.complex64)
+    uxxxn = np.zeros((m2,n2), dtype=np.complex64)
+
+    for i in range(n2):
+       utn[:,i] = PolyDiff(np.real(un[:,i+width_x]), dt*np.arange(m), deg = deg, width = width_t)[:,0]
+       utn[:,i] = utn[:,i]+1j*PolyDiff(np.imag(un[:,i+width_x]), dt*np.arange(m), deg = deg, width = width_t)[:,0]
+
+    for i in range(m2):
+       x_derivatives = PolyDiff(np.real(un[i+width_t,:]), dx*np.arange(n), deg = deg, diff = 3, width = width_x)
+       x_derivatives = x_derivatives+1j*PolyDiff(np.imag(un[i+width_t,:]), dx*np.arange(n), deg = deg, diff = 3, width = width_x)
+       uxn[i,:] = x_derivatives[:,0]
+       uxxn[i,:] = x_derivatives[:,1]
+       uxxxn[i,:] = x_derivatives[:,2]
+
+    utn = np.reshape(utn, (n2*m2,1), order='F')
+    uxn = np.reshape(uxn, (n2*m2,1), order='F')
+    uxxn = np.reshape(uxxn, (n2*m2,1), order='F')
+    uxxxn = np.reshape(uxxxn, (n2*m2,1), order='F')
+    Xn_ders = np.hstack([np.ones((n2*m2,1)),uxn,uxxn,uxxxn])
+    Xn_data = np.hstack([np.reshape(un[width_t:m-width_t,width_x:n-width_x], (n2*m2,1), order='F'),
+                     np.reshape(abs(un[width_t:m-width_t,width_x:n-width_x]), (n2*m2,1), order='F')])
+    derivatives_description = ['','u_{x}','u_{xx}', 'u_{xxx}']
+
+    Xn, rhs_des = build_Theta(Xn_data, Xn_ders, derivatives_description, 3, data_description = ['u','|u|'])
+
+    return utn, Xn, rhs_des
 ##################################################################################
 ##################################################################################
 #
@@ -405,6 +550,271 @@ def print_pde(w, rhs_description, ut = 'u_t'):
 #               
 ##################################################################################
 ##################################################################################
+def RobustPCA(U, lam_2 = 1e-3):
+    Y1         = U
+    norm_two  = np.linalg.norm(Y1.ravel(), 2)
+    norm_inf  = np.linalg.norm(Y1.ravel(), np.inf) / lam_2
+    dual_norm = np.max([norm_two, norm_inf])
+    Y1        = Y1 /dual_norm
+    Z         = np.zeros(Y1.shape)
+    E         = np.zeros(Y1.shape)
+    dnorm     = np.linalg.norm(Y1, 'fro')
+    eta1       = 1.25 / norm_two
+    rho       = 1.1
+    sv        = 30.
+    n         = Y1.shape[1]
+    iter_print = 50
+    tol       = 1e-5
+    maxIter   = 1e4
+    iter      = 0
+    err       = 10**5
+  
+    while iter< maxIter and err > tol:
+        iter += 1
+        # update E
+        tempE = U - Z + (1/eta1) * Y1
+        E     = shrink(tempE, lam_2 / eta1)
+        # update Z
+        tempZ = U - E + (1/eta1) * Y1
+        Z, nc_norm = pcasvd_threshold(tempZ, eta1, n, sv)
+        # update Lafrange multiplier Y1 and eta1  
+        Err   = U - Z - E
+        Y1    = Y1 + eta1 * Err
+        eta1   = np.min([eta1 * rho, 1e8])
+        err   = np.linalg.norm(Err, 'fro')/dnorm
+
+        if (iter % iter_print) == 0 or iter == 1 or iter > maxIter or err < tol:
+           print('iteration:{0}, err:{1}, nc_norm:{2} eta1:{3}'.format(iter, err, nc_norm, eta1))
+
+    return Z, E
+
+
+def DLrSR(R, Ut, xi_true, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
+    nx, nt    = Ut.shape[0], Ut.shape[1]
+    # for robust low-rank PCA
+    Y2        = Ut
+    norm_two  = np.linalg.norm(Y2.ravel(), 2)
+    norm_inf  = np.linalg.norm(Y2.ravel(), np.inf) / lam_3
+    dual_norm = np.max([norm_two, norm_inf])
+    Y2        = Y2 /dual_norm
+    X         = np.zeros(Y2.shape)
+    E2        = np.zeros(Y2.shape)
+    Rxmatrix  = np.zeros(Y2.shape)
+    #x         = np.zeros((R.shape[1],1))
+    dnorm     = np.linalg.norm(Y2, 'fro')
+
+    eta2       = 1.25 / norm_two
+    rho       = 1.2
+    sv        = 30.
+    n         = Y2.shape[1]
+    iter_print = 50
+    tol       = 1e-5
+    maxIter   = 1e4
+    iter      = 0
+    err       = 10**5
+
+    start_num = 201 
+  
+    while iter< maxIter and err > tol:
+        iter += 1
+        if iter < start_num:
+           # update E
+           tempE2 = Ut - X + (1/eta2) * Y2
+           E2  = shrink(tempE2, lam_3 / eta2)
+           # update A
+           tempX = Ut - E2 + (1/eta2) * Y2
+           X, nc_norm = pcasvd_threshold(tempX, eta2, n, sv)  
+        else: 
+           # update x
+           tempX = (eta2/(lam_4+eta2))*(Ut - E2 + (1 / eta2) * Y2) + (lam_4/(lam_4+eta2))*Rxmatrix
+           X, nc_norm = pcasvd_threshold(tempX, eta2+lam_4, n, sv)
+           vectorX    = np.reshape(X,(nx*nt,1))
+           X_grouped = [vectorX[j*nx:(j+1)*nx] for j in range(nt)]
+           Xi,Tol,Losses =  TrainSGTRidge(R,X_grouped,lam_1, d_tol)
+           xi = Xi[np.argmin(Losses)]
+           tempX = np.hstack([tempR.dot(tempxi) for [tempR,tempxi] in zip(R,xi.T)])
+           X     = np.reshape(tempX,(nx,nt))
+           #vX_grouped = [vectorX[j*nx:(j+1)*nx] for j in range(nt)]
+        # update Lafrange multiplier Q and eta  
+        Err = Ut - X - E2
+        Y2 = Y2 + eta2 * Err
+        eta2 = np.min([eta2 * rho, 1e7])
+        err = np.linalg.norm(Err, 'fro')/dnorm
+
+        if (iter % iter_print) == 0 or iter == 1 or iter > maxIter or err < tol:
+           print('iteration:{0}, err:{1}, nc_norm:{2} eta2:{3}'.format(iter, err, nc_norm, eta2))
+
+    if iter < start_num:
+       print("IALM Finished at iteration %d" % (iter))
+       vectorX    = np.reshape(X,(nx*nt,1))
+       X_grouped = [vectorX[j*nx:(j+1)*nx] for j in range(nt)]
+       Xi,Tol,Losses =  TrainSGTRidge(R,X_grouped,lam_1, d_tol)
+       xi = Xi[np.argmin(Losses)] 
+
+    return xi, X, E2
+
+
+def Robust_LRSTR(R, Ut, rhs_des, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
+    nx, nt    = Ut.shape[0], Ut.shape[1]
+    # for robust low-rank PCA
+    Y2        = Ut
+    norm_two  = np.linalg.norm(Y2.ravel(), 2)
+    norm_inf  = np.linalg.norm(Y2.ravel(), np.inf) / lam_3
+    dual_norm = np.max([norm_two, norm_inf])
+    Y2        = Y2 /dual_norm
+    X         = np.zeros(Y2.shape)
+    E2        = np.zeros(Y2.shape)
+    Rxmatrix  = np.zeros(Y2.shape)
+    x         = np.zeros((R.shape[1],1))
+    dnorm     = np.linalg.norm(Y2, 'fro')
+
+    eta2       = 1.25 / norm_two
+    rho       = 1.2
+    sv        = 30.
+    n         = Y2.shape[1]
+    iter_print = 50
+    tol       = 1e-5
+    maxIter   = 1e4
+    iter      = 0
+    err       = 10**5
+
+    start_num = 20 
+  
+    while iter< maxIter and err > tol:
+        iter += 1
+        if iter < start_num:
+           # update E
+           tempE2 = Ut - X + (1/eta2) * Y2
+           E2  = shrink(tempE2, lam_3 / eta2)
+           # update A
+           tempX = Ut - E2 + (1/eta2) * Y2
+           X, nc_norm = pcasvd_threshold(tempX, eta2, n, sv)  
+        else: 
+           # update x
+           tempX = (eta2/(lam_4+eta2))*(Ut - E2 + (1 / eta2) * Y2) + (lam_4/(lam_4+eta2))*Rxmatrix
+           X, nc_norm = pcasvd_threshold(tempX, eta2+lam_4, n, sv)
+           vectorX    = np.reshape(X,(nx*nt,1))
+           x        = TrainSTRidge(R, vectorX, lam_1, d_tol)  
+           Rxmatrix = np.reshape(R.dot(x), (nx,nt))
+           print_pde(x, rhs_des)
+
+        # update Lafrange multiplier Q and eta  
+        Err = Ut - X - E2
+        Y2 = Y2 + eta2 * Err
+        eta2 = np.min([eta2 * rho, 1e7])
+        err = np.linalg.norm(Err, 'fro')/dnorm
+
+        if (iter % iter_print) == 0 or iter == 1 or iter > maxIter or err < tol:
+           print('iteration:{0}, err:{1}, nc_norm:{2} eta2:{3}'.format(iter, err, nc_norm, eta2))
+           print_pde(x, rhs_des)
+    if iter < start_num:
+       print("IALM Finished at iteration %d" % (iter))
+       vectorX   = np.reshape(X,(nx*nt,1))
+       x         = TrainSTRidge(R, vectorX, lam_1, d_tol)  
+       print_pde(x, rhs_des)
+
+    return x, X, E2
+
+######################################################################################################
+def DLrSR_para(R, Ut, rhs_des, lam_1 = 1e-5, lam_3 = 0.1, lam_4 = 1e-5, d_tol = 30):
+    nx, nt    = Ut.shape[0], Ut.shape[1]
+    # for robust low-rank PCA
+    Y2        = Ut
+    norm_two  = np.linalg.norm(Y2.ravel(), 2)
+    norm_inf  = np.linalg.norm(Y2.ravel(), np.inf) / lam_3
+    dual_norm = np.max([norm_two, norm_inf])
+    Y2        = Y2 /dual_norm
+    X         = np.zeros(Y2.shape)
+    E2        = np.zeros(Y2.shape)
+    Rxmatrix  = np.zeros(Y2.shape)
+    x         = np.zeros((R.shape[1],1))
+    dnorm     = np.linalg.norm(Y2, 'fro')
+
+    eta2       = 1.25 / norm_two
+    rho       = 1.2
+    sv        = 30.
+    n         = Y2.shape[1]
+    iter_print = 50
+    tol       = 1e-5
+    maxIter   = 1e4
+    iter      = 0
+    err       = 10**5
+
+    start_num = 20 
+    allerr = []
+    allnc_norm = []
+    while iter< maxIter and err > tol:
+        iter += 1
+        if iter < start_num:
+           # update E
+           tempE2 = Ut - X + (1/eta2) * Y2
+           E2  = shrink(tempE2, lam_3 / eta2)
+           # update A
+           tempX = Ut - E2 + (1/eta2) * Y2
+           X, nc_norm = pcasvd_threshold(tempX, eta2, n, sv)  
+        else: 
+           # update x
+           tempX = (eta2/(lam_4+eta2))*(Ut - E2 + (1 / eta2) * Y2) + (lam_4/(lam_4+eta2))*Rxmatrix
+           X, nc_norm = pcasvd_threshold(tempX, eta2+lam_4, n, sv)
+           vectorX    = np.reshape(X,(nx*nt,1))
+           x        = TrainSTRidge(R, vectorX, lam_1, d_tol)  
+           Rxmatrix = np.reshape(R.dot(x), (nx,nt))
+           print_pde(x, rhs_des)
+
+        # update Lafrange multiplier Q and eta  
+        Err = Ut - X - E2    
+        Y2 = Y2 + eta2 * Err
+        eta2 = np.min([eta2 * rho, 1e7])
+        err = np.linalg.norm(Err, 'fro')/dnorm
+        err_E2 = np.linalg.norm(E2,ord=1, keepdims = True)
+        err_xi = np.linalg.norm(np.real(x),ord=1, keepdims = True)
+        allerr_temp = err + nc_norm+ lam_3*err_E2 + lam_1*np.linalg.cond(R)*err_xi
+        allerr.append(allerr_temp)
+        allnc_norm.append(nc_norm)
+
+        if (iter % iter_print) == 0 or iter == 1 or iter > maxIter or err < tol:
+           print('iteration:{0}, err:{1}, nc_norm:{2} eta2:{3}'.format(iter, err, nc_norm, eta2))
+           print_pde(x, rhs_des)
+    if iter < start_num:
+       print("IALM Finished at iteration %d" % (iter))
+       vectorX   = np.reshape(X,(nx*nt,1))
+       x         = TrainSTRidge(R, vectorX, lam_1, d_tol)  
+       print_pde(x, rhs_des)
+
+    return x, X, E2, allerr, allnc_norm
+
+###########################################################################################################
+def frobenius_norm(M):
+    return np.linalg.norm(M, ord='fro')
+
+def shrink(M, tau):
+    return np.sign(M) * np.maximum((np.abs(M) - tau), np.zeros(M.shape)) 
+   
+def hardshrink(M, tau):
+    return np.sign(M) * np.maximum((np.abs(M) - tau), np.zeros(M.shape))  
+
+def svd_threshold(M, tau):
+    U, S, V = np.linalg.svd(M, full_matrices=False)
+    eig = shrink(S, tau)
+    return np.dot(U, np.dot(np.diag(shrink(S, tau)), V)), eig
+
+def pcasvd_threshold(M, mu, n, sv):
+    U, S, V = np.linalg.svd(M, full_matrices=False)
+    svp = (S > 1 / mu).shape[0]
+    if svp < sv:
+       sv = np.min([svp + 1, n])
+    else:
+       sv = np.min([svp + round(0.05 * n), n])
+    A = np.dot(np.dot(U[:, :svp], np.diag(S[:svp] - 1 / mu)), V[:svp, :])
+    nc_norm = np.sum(S)
+    return A, nc_norm
+
+def compute_err(xi, xi_true):
+    allerr=xi-xi_true
+    return np.linalg.norm(allerr,ord=1, keepdims = True)*100/np.linalg.norm(xi_true,ord=1, keepdims = True)
+
+####################################################################################################
+####################################################################################################
 
 def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0.8, print_best_tol = False):
     """
@@ -412,9 +822,6 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
 
     It runs over different values of tolerance and trains predictors on a training set, then evaluates them 
     using a loss function on a holdout set.
-
-    Please note published article has typo.  Loss function used here for model selection evaluates fidelity using 2-norm,
-    not squared 2-norm.
     """
 
     # Split data into 80% training and 20% test, then search for the best tolderance.
@@ -435,7 +842,7 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
 
     # Get the standard least squares estimator
     w = np.zeros((D,1))
-    w_best = np.linalg.lstsq(TrainR, TrainY, rcond=None)[0]
+    w_best = np.linalg.lstsq(TrainR, TrainY)[0]
     err_best = np.linalg.norm(TestY - TestR.dot(w_best), 2) + l0_penalty*np.count_nonzero(w_best)
     tol_best = 0
 
@@ -452,7 +859,6 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
             w_best = w
             tol_best = tol
             tol = tol + d_tol
-
         else:
             tol = max([0,tol - 2*d_tol])
             d_tol  = 2*d_tol / (maxit - iter)
@@ -461,108 +867,8 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
     if print_best_tol: print("Optimal tolerance:", tol_best)
 
     return w_best
-
-def Lasso(X0, Y, lam, w = np.array([0]), maxit = 100, normalize = 2):
-    """
-    Uses accelerated proximal gradient (FISTA) to solve Lasso
-    argmin (1/2)*||Xw-Y||_2^2 + lam||w||_1
-    """
     
-    # Obtain size of X
-    n,d = X0.shape
-    X = np.zeros((n,d), dtype=np.complex64)
-    Y = Y.reshape(n,1)
-    
-    # Create w if none is given
-    if w.size != d:
-        w = np.zeros((d,1), dtype=np.complex64)
-    w_old = np.zeros((d,1), dtype=np.complex64)
-        
-    # Initialize a few other parameters
-    converge = 0
-    objective = np.zeros((maxit,1))
-    
-    # First normalize data
-    if normalize != 0:
-        Mreg = np.zeros((d,1))
-        for i in range(0,d):
-            Mreg[i] = 1.0/(np.linalg.norm(X0[:,i],normalize))
-            X[:,i] = Mreg[i]*X0[:,i]
-    else: X = X0
-
-    # Lipschitz constant of gradient of smooth part of loss function
-    L = np.linalg.norm(X.T.dot(X),2)
-    
-    # Now loop until converged or max iterations
-    for iters in range(0, maxit):
-         
-        # Update w
-        z = w + iters/float(iters+1)*(w - w_old)
-        w_old = w
-        z = z - X.T.dot(X.dot(z)-Y)/L
-        for j in range(d): w[j] = np.multiply(np.sign(z[j]), np.max([abs(z[j])-lam/L,0]))
-
-        # Could put in some sort of break condition based on convergence here.
-    
-    # Now that we have the sparsity pattern, used least squares.
-    biginds = np.where(w != 0)[0]
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds], rcond=None)[0]
-
-    # Finally, reverse the regularization so as to be able to use with raw data
-    if normalize != 0: return np.multiply(Mreg,w)
-    else: return w
-
-def ElasticNet(X0, Y, lam1, lam2, w = np.array([0]), maxit = 100, normalize = 2):
-    """
-    Uses accelerated proximal gradient (FISTA) to solve elastic net
-    argmin (1/2)*||Xw-Y||_2^2 + lam_1||w||_1 + (1/2)*lam_2||w||_2^2
-    """
-    
-    # Obtain size of X
-    n,d = X0.shape
-    X = np.zeros((n,d), dtype=np.complex64)
-    Y = Y.reshape(n,1)
-    
-    # Create w if none is given
-    if w.size != d:
-        w = np.zeros((d,1), dtype=np.complex64)
-    w_old = np.zeros((d,1), dtype=np.complex64)
-        
-    # Initialize a few other parameters
-    converge = 0
-    objective = np.zeros((maxit,1))
-    
-    # First normalize data
-    if normalize != 0:
-        Mreg = np.zeros((d,1))
-        for i in range(0,d):
-            Mreg[i] = 1.0/(np.linalg.norm(X0[:,i],normalize))
-            X[:,i] = Mreg[i]*X0[:,i]
-    else: X = X0
-
-    # Lipschitz constant of gradient of smooth part of loss function
-    L = np.linalg.norm(X.T.dot(X),2) + lam2
-    
-    # Now loop until converged or max iterations
-    for iters in range(0, maxit):
-         
-        # Update w
-        z = w + iters/float(iters+1)*(w - w_old)
-        w_old = w
-        z = z - (lam2*z + X.T.dot(X.dot(z)-Y))/L
-        for j in range(d): w[j] = np.multiply(np.sign(z[j]), np.max([abs(z[j])-lam1/L,0]))
-
-        # Could put in some sort of break condition based on convergence here.
-    
-    # Now that we have the sparsity pattern, used least squares.
-    biginds = np.where(w != 0)[0]
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],Y, rcond=None)[0]
-
-    # Finally, reverse the regularization so as to be able to use with raw data
-    if normalize != 0: return np.multiply(Mreg,w)
-    else: return w
-    
-def STRidge(X0, y, lam, maxit, tol, normalize = 2, print_results = False):
+def STRidge(X0, y, lam, maxit, tol, normalize = 0, print_results = False):
     """
     Sequential Threshold Ridge Regression algorithm for finding (hopefully) sparse 
     approximation to X^{-1}y.  The idea is that this may do better with correlated observables.
@@ -581,11 +887,11 @@ def STRidge(X0, y, lam, maxit, tol, normalize = 2, print_results = False):
     else: X = X0
     
     # Get the standard ridge esitmate
-    if lam != 0: w = np.linalg.lstsq(X.T.dot(X) + lam*np.eye(d),X.T.dot(y), rcond=None)[0]
-    else: w = np.linalg.lstsq(X,y, rcond=None)[0]
+    if lam != 0: w = np.linalg.lstsq(X.T.dot(X) + lam*np.eye(d),X.T.dot(y))[0]
+    else: w = np.linalg.lstsq(X,y)[0]
     num_relevant = d
     biginds = np.where( abs(w) > tol)[0]
-    
+
     # Threshold and continue
     for j in range(maxit):
 
@@ -607,81 +913,11 @@ def STRidge(X0, y, lam, maxit, tol, normalize = 2, print_results = False):
         
         # Otherwise get a new guess
         w[smallinds] = 0
-        if lam != 0: w[biginds] = np.linalg.lstsq(X[:, biginds].T.dot(X[:, biginds]) + lam*np.eye(len(biginds)),X[:, biginds].T.dot(y), rcond=None)[0]
-        else: w[biginds] = np.linalg.lstsq(X[:, biginds],y, rcond=None)[0]
+        if lam != 0: w[biginds] = np.linalg.lstsq(X[:, biginds].T.dot(X[:, biginds]) + lam*np.eye(len(biginds)),X[:, biginds].T.dot(y))[0]
+        else: w[biginds] = np.linalg.lstsq(X[:, biginds],y)[0]
 
     # Now that we have the sparsity pattern, use standard least squares to get w
-    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],y, rcond=None)[0]
-    
+    if biginds != []: w[biginds] = np.linalg.lstsq(X[:, biginds],y)[0]
+
     if normalize != 0: return np.multiply(Mreg,w)
     else: return w
-    
-def FoBaGreedy(X, y, epsilon = 0.1, maxit_f = 100, maxit_b = 5, backwards_freq = 5):
-    """
-    Forward-Backward greedy algorithm for sparse regression.
-
-    See Zhang, Tom. 'Adaptive Forward-Backward Greedy Algorithm for Sparse Learning with Linear
-    Models', NIPS, 2008
-    """
-
-    n,d = X.shape
-    F = {}
-    F[0] = set()
-    w = {}
-    w[0] = np.zeros((d,1))
-    k = 0
-    delta = {}
-
-    for forward_iter in range(maxit_f):
-
-        k = k+1
-
-        # forward step
-        zero_coeffs = np.where(w[k-1] == 0)[0]
-        err_after_addition = []
-        residual = y - X.dot(w[k-1])
-        for i in zero_coeffs:
-
-            # Per figure 3 line 8 in paper, do not retrain old variables.
-            # Only look for optimal alpha, which is solving for new w iff X is unitary
-            alpha = X[:,i].T.dot(residual)/np.linalg.norm(X[:,i])**2
-
-            w_added = np.copy(w[k-1])
-            w_added[i] = alpha
-            err_after_addition.append(np.linalg.norm(X.dot(w_added)-y))
-        i = zero_coeffs[np.argmin(err_after_addition)]
-        
-        F[k] = F[k-1].union({i})
-        w[k] = np.zeros((d,1), dtype=np.complex64)
-        w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y, rcond=None)[0]
-
-        # check for break condition
-        delta[k] = np.linalg.norm(X.dot(w[k-1]) - y) - np.linalg.norm(X.dot(w[k]) - y)
-        if delta[k] < epsilon: return w[k-1]
-
-        # backward step, do once every few forward steps
-        if forward_iter % backwards_freq == 0 and forward_iter > 0:
-
-            for backward_iter in range(maxit_b):
-
-                non_zeros = np.where(w[k] != 0)[0]
-                err_after_simplification = []
-                for j in non_zeros:
-                    w_simple = np.copy(w[k])
-                    w_simple[j] = 0
-                    err_after_simplification.append(np.linalg.norm(X.dot(w_simple) - y))
-                j = np.argmin(err_after_simplification)
-                w_simple = np.copy(w[k])
-                w_simple[non_zeros[j]] = 0
-
-                # check for break condition on backward step
-                delta_p = err_after_simplification[j] - np.linalg.norm(X.dot(w[k]) - y)
-                if delta_p > 0.5*delta[k]: break
-
-                k = k-1;
-                F[k] = F[k+1].difference({j})
-                w[k] = np.zeros((d,1))
-                w[k][list(F[k])] = np.linalg.lstsq(X[:, list(F[k])], y, rcond=None)[0]
-
-    return w[k] 
-    

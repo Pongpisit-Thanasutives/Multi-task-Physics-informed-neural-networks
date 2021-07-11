@@ -21,6 +21,8 @@ from collections import OrderedDict
 
 import math
 import numpy as np
+from numpy import array as npar
+print("You can use npar for np.array")
 import pandas as pd
 from sklearn.metrics import *
 from sklearn.preprocessing import PolynomialFeatures
