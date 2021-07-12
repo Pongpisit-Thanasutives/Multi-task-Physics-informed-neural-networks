@@ -12,17 +12,12 @@ from preprocess import *
 # Let's do facy optimizers
 from optimizers import Lookahead, AdamGC, SGDGC
 from madgrad import MADGRAD
-from lbfgsnew import LBFGSNew
 
 # Tracking
 from tqdm import trange
 
 import sympy
 import sympytorch
-
-
-# In[ ]:
-
 
 noise_intensity = 0.01
 
@@ -66,9 +61,7 @@ ub = scaling_factor*to_tensor(ub, False)
 # Feature names, base on the symbolic regression results
 feature_names=('uf', 'u_x', 'u_xx', 'u_xxxx'); feature2index = {}
 
-
-# In[ ]:
-
+del X_star, u_star, Exact, data, X, T
 
 program = '''
 -0.534833*X2-0.518928*X3-0.541081*X0*X1
@@ -163,7 +156,7 @@ pinn = PINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, 
 # In[ ]:
 
 
-pinn = load_weights(pinn, "./saved_path_inverse_small_KS/final_finetuned_pinn_5000.pth")
+# pinn = load_weights(pinn, "./saved_path_inverse_small_KS/final_finetuned_pinn_5000.pth")
 
 
 # In[ ]:
@@ -186,14 +179,14 @@ def closure():
     if torch.is_grad_enabled(): optimizer2.zero_grad()
     denoised_X = ae(X_u_train)
     losses = pinn.loss(denoised_X[:, 0:1], denoised_X[:, 1:2], u_train, update_network_params=True, update_pde_params=True)
-    l = sum(losses)+0.1*ae_loss(denoised_X, X_u_train)
+    l = sum(losses)+0.1*ae_loss(denoised_X, X_u_train, include_l1=ae.l1_strength)
     if l.requires_grad: l.backward(retain_graph=True)
     return l
 
 def mtl_closure():
     denoised_X = ae(X_u_train)
     losses = pinn.loss(denoised_X[:, 0:1], denoised_X[:, 1:2], u_train, update_network_params=True, update_pde_params=True)
-    losses.append(0.1*ae_loss(denoised_X, X_u_train))
+    losses.append(0.1*ae_loss(denoised_X, X_u_train, include_l1=ae.l1_strength))
 
     n_obj = len(losses)
     updated_grads = []
@@ -217,10 +210,7 @@ def mtl_closure():
     return sum(losses)
 
 
-# In[ ]:
-
-
-epochs1, epochs2 = 200, 200
+epochs1, epochs2 = 1200, 30
 # TODO: Save best state dict and training for more epochs.
 optimizer1 = MADGRAD([{'params':ae.parameters()}, {'params':pinn.parameters()}], lr=1e-7)
 optimizer1.param_groups[0]['lr'] = 1e-6
@@ -233,6 +223,13 @@ for i in range(epochs1):
     l = mtl_closure()
     if (i % 10) == 0 or i == epochs1-1:
         print("Epoch {}: ".format(i), l.item())
+
+save(pinn, "./saved_path_inverse_small_KS/noisy_final_finetuned_pinn_5000V2.pth")
+save(ae, "./saved_path_inverse_small_KS/ae_5000V2.pth")
+
+if epochs1 == 0:
+    pinn = load_weights(pinn, "./saved_path_inverse_small_KS/noisy_final_finetuned_pinn_5000V2.pth")
+    ae = load_weights(ae, "./saved_path_inverse_small_KS/ae_5000V2.pth")
 
 optimizer2 = torch.optim.LBFGS(list(ae.parameters()) + list(pinn.parameters()), lr=1e-1, max_iter=500, max_eval=int(500*1.25), history_size=300, line_search_fn='strong_wolfe')
 ae.train(); pinn.train()
@@ -251,5 +248,5 @@ print(pred_params)
 errs = 100*(np.array(pred_params)+1)
 print(errs.mean(), errs.std())
 
-save(pinn, "./saved_path_inverse_small_KS/noisy_final_finetuned_pinn_5000.pth")
-save(ae, "./saved_path_inverse_small_KS/ae_5000.pth")
+save(pinn, "./saved_path_inverse_small_KS/noisy_final_finetuned_pinn_5000V2.pth")
+save(ae, "./saved_path_inverse_small_KS/ae_5000V2.pth")
