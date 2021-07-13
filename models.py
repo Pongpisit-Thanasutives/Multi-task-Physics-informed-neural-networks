@@ -410,10 +410,15 @@ def ae_loss(recon_X, X, include_l1=0.0, reduction="mean"):
     return output_loss
 
 class AutoEncoder(nn.Module):
-    def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU()):
+    def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU(), include_l1=True):
         super(AutoEncoder, self).__init__()
         self.mlp = nn.Sequential(nn.Linear(x_dim, h_dim), activation, nn.Linear(h_dim, x_dim))
-        self.l1_strength = nn.Parameter(data=torch.FloatTensor([0.1]), requires_grad=True)
+        self.l1_strength = nn.Parameter(data=torch.FloatTensor([0.1]), requires_grad=True) if include_l1 else: None
+
     def forward(self, X, split=False):
         if split: return dimension_slicing(self.mlp(X))
         return self.mlp(X)
+
+    def compute_loss(self, recon_X, X, reduction="mean"):
+        output_loss = F.mse_loss(self.forward(X), X, reduction=reduction)
+        return output_loss + self.l1_strength*F.l1_loss(recon_X, X, reduction=reduction) 
