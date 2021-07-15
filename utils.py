@@ -22,6 +22,7 @@ from torch.utils.data import DataLoader, Dataset
 from collections import OrderedDict
 
 import math
+from statistics import multimode
 import numpy as np
 from numpy import array as npar
 print("You can use npar for np.array")
@@ -35,6 +36,8 @@ from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss
 
 # Finite difference method
 from findiff import FinDiff, coefficients, Coefficient
+
+def mymode(a_list): return multimode([f[0] for f in a_list if len(f)>0])[0]
 
 def search_files(directory='.', extension=''):
     extension = extension.lower()
@@ -253,6 +256,47 @@ def gradients_dict(u, x, t, feature_names):
         for c in e: out = diff(out, eval(c))
         grads_dict['u_'+e[::-1]] = out
         
+    return grads_dict
+
+def group_diff(dependent_var, independent_vars, feature_names, gd_init={}):
+    xxx, ttt = independent_vars
+
+    char = ""; fn = feature_names
+    cal_terms = ['' for i in range(len(feature_names))]
+    set_cal_terms = set()
+    grads_dict = gd_init
+
+    while 1:
+        if sum([len(f) for f in fn]) == 0: break
+        
+        char = mymode(fn)
+        
+        new_fn = []; new_set_cal_terms = set()
+        for i, f in enumerate(fn):
+            if len(f) > 0 and f[0] == char:
+                new_fn.append(f[1:])
+                cal_terms[i] += f[0]
+                if cal_terms[i] not in set_cal_terms:
+                    new_set_cal_terms.add(cal_terms[i])
+            else: new_fn.append(f)
+                
+        fn = new_fn
+        
+        # Computing the actual derivatives here
+        for e in new_set_cal_terms:
+            if e not in grads_dict:
+                if len(e) == 1:
+                    if e == 'x': grads_dict[e] = diff(dependent_var, xxx)
+                    elif e == 't': grads_dict[e] = diff(dependent_var, ttt)
+                        
+                elif e[:-1] in grads_dict:
+                    if e[-1] == 'x': grads_dict[e] = diff(grads_dict[e[:-1]], xxx)
+                    elif e[-1] == 't': grads_dict[e] = diff(grads_dict[e[:-1]], ttt)
+                        
+                else: raise Exception("The program is not working properly.")
+        
+        set_cal_terms = set_cal_terms.union(new_set_cal_terms)
+
     return grads_dict
 
 # Careful that there is no delta[i] = 0

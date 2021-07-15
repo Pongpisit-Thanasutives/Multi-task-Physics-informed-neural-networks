@@ -413,7 +413,9 @@ class AutoEncoder(nn.Module):
     def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU(), include_l1=True):
         super(AutoEncoder, self).__init__()
         self.mlp = nn.Sequential(nn.Linear(x_dim, h_dim), activation, nn.Linear(h_dim, x_dim))
-        self.l1_strength = nn.Parameter(data=torch.FloatTensor([0.1]), requires_grad=True) if include_l1 else: None
+        self.l1_strength = None
+        if include_l1:
+            self.l1_strength = nn.Parameter(data=torch.FloatTensor([0.1]), requires_grad=True)
 
     def forward(self, X, split=False):
         if split: return dimension_slicing(self.mlp(X))
