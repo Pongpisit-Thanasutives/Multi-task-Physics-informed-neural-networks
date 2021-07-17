@@ -267,7 +267,8 @@ def group_diff(dependent_var, independent_vars, feature_names, function_notation
     set_cal_terms = set()
     grads_dict = gd_init
 
-    while 1:
+    MAX_ITER = sum([len(e) for e in feature_names])
+    for _ in range(MAX_ITER):
         if sum([len(f) for f in fn]) == 0: break
         
         char = mymode(fn)

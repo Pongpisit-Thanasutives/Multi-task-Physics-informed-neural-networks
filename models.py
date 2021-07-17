@@ -25,8 +25,16 @@ def cplx2tensor(func):
 def add_imaginary_dimension(a_tensor):
     return torch.hstack([a_tensor, torch.zeros(a_tensor.shape[0], 1).requires_grad_(False)])
 
-def complex_mse(v1, v2):
-    return F.mse_loss(v1.real, v2.real)+F.mse_loss(v1.imag, v2.imag)
+def real2cplx(real_tensor):
+    ct = torch.complex(real_tensor, torch.zeros_like(real_tensor))
+    out = []
+    for te in dimension_slicing(ct):
+        out.append(te.real)
+        out.append(te.imag)
+    return RealToCplx()(cat(*out))
+
+def complex_mse(v1, v2, dist_fn=F.mse_loss):
+    return dist_fn(v1.real, v2.real) + dist_fn(v1.imag, v2.imag)
 
 def real_mse(v1, v2):
     row = min(v1.shape[0], v2.shape[0])
@@ -406,21 +414,39 @@ class VAE(nn.Module):
 
 def ae_loss(recon_X, X, include_l1=0.0, reduction="mean"):
     output_loss = F.mse_loss(recon_X, X, reduction=reduction)
-    if include_l1 > 0.0: output_loss = output_loss + include_l1*F.l1_loss(recon_X, X, reduction=reduction) 
+    if include_l1 > 0.0: output_loss = output_loss + torch.abs(include_l1)*F.l1_loss(recon_X, X, reduction=reduction) 
     return output_loss
 
 class AutoEncoder(nn.Module):
-    def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU(), include_l1=True):
+    def __init__(self, x_dim=2, h_dim=32, activation=nn.ReLU(), include_l1=0.1):
         super(AutoEncoder, self).__init__()
         self.mlp = nn.Sequential(nn.Linear(x_dim, h_dim), activation, nn.Linear(h_dim, x_dim))
         self.l1_strength = None
-        if include_l1:
-            self.l1_strength = nn.Parameter(data=torch.FloatTensor([0.1]), requires_grad=True)
+        if include_l1 > 0.0:
+            self.l1_strength = nn.Parameter(data=torch.FloatTensor([include_l1]), requires_grad=True)
 
     def forward(self, X, split=False):
         if split: return dimension_slicing(self.mlp(X))
         return self.mlp(X)
 
-    def compute_loss(self, recon_X, X, reduction="mean"):
-        output_loss = F.mse_loss(self.forward(X), X, reduction=reduction)
-        return output_loss + self.l1_strength*F.l1_loss(recon_X, X, reduction=reduction) 
+    def compute_loss(self, X, reduction="mean"):
+        recon_X = self.mlp(X)
+        output_loss = F.mse_loss(recon_X, X, reduction=reduction)
+        return output_loss + torch.abs(self.l1_strength)*F.l1_loss(recon_X, X, reduction=reduction) 
+
+class ComplexAutoEncoder(nn.Module):
+    def __init__(self, x_dim=2, h_dim=32, activation=CplxModReLU(), include_l1=0.1):
+        super(ComplexAutoEncoder, self).__init__()
+        self.mlp = CplxSequential(CplxLinear(x_dim, h_dim), activation, CplxLinear(h_dim, x_dim))
+        self.l1_strength = None
+        if include_l1 > 0.0:
+            self.l1_strength = nn.Parameter(data=torch.FloatTensor([include_l1]), requires_grad=True)
+    
+    def forward(self, X, split=False):
+        if split: return dimension_slicing(self.mlp(X))
+        return self.mlp(X)
+
+    def compute_loss(self, X):
+        recon_X = self.forward(X)
+        output_loss = complex_mse(recon_X, X)
+        return output_loss + torch.abs(self.l1_strength)*complex_mse(recon_X, X, dist_fn=F.l1_loss)
