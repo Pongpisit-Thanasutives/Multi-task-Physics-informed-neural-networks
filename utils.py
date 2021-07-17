@@ -258,7 +258,8 @@ def gradients_dict(u, x, t, feature_names):
         
     return grads_dict
 
-def group_diff(dependent_var, independent_vars, feature_names, gd_init={}):
+# Fast group derivatives implementation
+def group_diff(dependent_var, independent_vars, feature_names, function_notation="u", gd_init={}):
     xxx, ttt = independent_vars
 
     char = ""; fn = feature_names
@@ -285,13 +286,16 @@ def group_diff(dependent_var, independent_vars, feature_names, gd_init={}):
         # Computing the actual derivatives here
         for e in new_set_cal_terms:
             if e not in grads_dict:
+                prev = function_notation+"_"+e[:-1]
+                now = function_notation+"_"+e
+
                 if len(e) == 1:
-                    if e == 'x': grads_dict[e] = diff(dependent_var, xxx)
-                    elif e == 't': grads_dict[e] = diff(dependent_var, ttt)
+                    if e == 'x': grads_dict[now] = diff(dependent_var, xxx)
+                    elif e == 't': grads_dict[now] = diff(dependent_var, ttt)
                         
-                elif e[:-1] in grads_dict:
-                    if e[-1] == 'x': grads_dict[e] = diff(grads_dict[e[:-1]], xxx)
-                    elif e[-1] == 't': grads_dict[e] = diff(grads_dict[e[:-1]], ttt)
+                elif prev in grads_dict:
+                    if e[-1] == 'x': grads_dict[now] = diff(grads_dict[prev], xxx)
+                    elif e[-1] == 't': grads_dict[now] = diff(grads_dict[prev], ttt)
                         
                 else: raise Exception("The program is not working properly.")
         
