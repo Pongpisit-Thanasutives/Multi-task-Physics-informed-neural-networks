@@ -412,9 +412,14 @@ class VAE(nn.Module):
         z = self.sampling(mu, log_var)
         return self.decoder(z), mu, log_var
 
-def ae_loss(recon_X, X, include_l1=0.0, reduction="mean"):
+def ae_loss(recon_X, X, include_l1=torch.FloatTensor([0.0]), reduction="mean"):
     output_loss = F.mse_loss(recon_X, X, reduction=reduction)
     if include_l1 > 0.0: output_loss = output_loss + torch.abs(include_l1)*F.l1_loss(recon_X, X, reduction=reduction) 
+    return output_loss
+
+def complex_ae_loss(recon_X, X, include_l1=torch.FloatTensor([0.0])):
+    output_loss = complex_mse(recon_X, X)
+    if include_l1 > 0.0: output_loss = output_loss + torch.abs(include_l1)*complex_mse(recon_X, X, dist_fn=F.l1_loss)
     return output_loss
 
 class AutoEncoder(nn.Module):
