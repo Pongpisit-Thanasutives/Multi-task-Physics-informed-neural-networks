@@ -14,6 +14,8 @@ from cplxmodule.nn import CplxLinear, CplxModReLU, CplxDropout, CplxBatchNorm1d
 
 from utils import diff_flag, to_complex_tensor, dimension_slicing, string2sympytorch, gradients_dict, build_exp
 
+from tqdm import trange
+
 def cat(*args): return torch.cat(args, dim=-1)
 
 def to_column_vector(arr):
@@ -26,11 +28,14 @@ def add_imaginary_dimension(a_tensor):
     return torch.hstack([a_tensor, torch.zeros(a_tensor.shape[0], 1).requires_grad_(False)])
 
 def real2cplx(real_tensor):
-    ct = torch.complex(real_tensor, torch.zeros_like(real_tensor))
+    if real_tensor.dtype == torch.complex64 or real_tensor.dtype == torch.complex32: ct = real_tensor
+    else: ct = torch.complex(real_tensor, torch.zeros_like(real_tensor))
+
     out = []
     for te in dimension_slicing(ct):
         out.append(te.real)
         out.append(te.imag)
+
     return RealToCplx()(cat(*out))
 
 def complex_mse(v1, v2, dist_fn=F.mse_loss):
@@ -439,6 +444,20 @@ class AutoEncoder(nn.Module):
         output_loss = F.mse_loss(recon_X, X, reduction=reduction)
         return output_loss + torch.abs(self.l1_strength)*F.l1_loss(recon_X, X, reduction=reduction) 
 
+    def pretrain(self, X, epochs=10000, reduction="mean"):
+        opt = torch.optim.Adam(self.parameters(), lr=1e-3)
+        for i in trange(epochs):
+            opt.zero_grad()
+            self.compute_loss(X, reduction=reduction).backward(retain_graph=True)
+            opt.step()
+        print("Loss:", self.test(X))
+        print("Done pretraining")
+        return self
+
+    def test(self, X):
+        self.eval()
+        return F.mse_loss(self(X), X).item()
+
 class ComplexAutoEncoder(nn.Module):
     def __init__(self, x_dim=2, h_dim=32, activation=CplxModReLU(), include_l1=0.1):
         super(ComplexAutoEncoder, self).__init__()
@@ -455,3 +474,20 @@ class ComplexAutoEncoder(nn.Module):
         recon_X = self.forward(X)
         output_loss = complex_mse(recon_X, X)
         return output_loss + torch.abs(self.l1_strength)*complex_mse(recon_X, X, dist_fn=F.l1_loss)
+
+    def pretrain(self, X, epochs=10000):
+        if type(X) == torch.Tensor: X = real2cplx(X)
+        opt = torch.optim.Adam(self.parameters(), lr=1e-3)
+        self.train()
+        for i in trange(epochs):
+            opt.zero_grad()
+            self.compute_loss(X).backward(retain_graph=True)
+            opt.step()
+        print("Loss:", self.test(X))
+        print("Done pretraining")
+        return self
+
+    def test(self, X):
+        self.eval()
+        if type(X) == torch.Tensor: X = real2cplx(X)
+        return complex_mse(self(X), X).item()
