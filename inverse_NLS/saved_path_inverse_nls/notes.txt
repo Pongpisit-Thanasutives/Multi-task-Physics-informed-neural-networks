@@ -2,3 +2,5 @@ No need to scale the input before a cpinn's forward pass
 This is just due to the way the model was trained.
 
 The model that was trained on 500 data samples does not work every set of 500 samples.
+
+Noisy2 means both Exact and (x, t) are noisy.
