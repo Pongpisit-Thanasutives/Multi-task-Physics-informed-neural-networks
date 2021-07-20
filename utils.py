@@ -1,9 +1,12 @@
 # ipython nbconvert notebook.ipynb --to script
 
 import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
+import platform; PY_VERSION = int(platform.python_version()[2])
+print("Running Python", platform.python_version())
+
 import pickle
 from glob import glob as flist
-from collections import Counter
+from collections import Counter, OrderedDict
 
 # This is not a good import.
 # from sympy import *
@@ -19,10 +22,10 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader, Dataset
-from collections import OrderedDict
 
 import math
-from statistics import multimode
+if PY_VERSION >= 8: from statistics import multimode
+else: from statistics import mode
 import numpy as np
 from numpy import array as npar
 print("You can use npar for np.array")
@@ -37,7 +40,14 @@ from pytorch_stats_loss import torch_wasserstein_loss, torch_energy_loss
 # Finite difference method
 from findiff import FinDiff, coefficients, Coefficient
 
-def mymode(a_list): return multimode([f[0] for f in a_list if len(f)>0])[0]
+def common_element(a_list):
+    tv = Counter(a_list)
+    return max(tv, key=tv.get)
+
+def mymode(a_list): 
+    global PY_VERSION
+    if PY_VERSION >= 8: return multimode([f[0] for f in a_list if len(f)>0])[0]
+    else: return common_element([f[0] for f in a_list if len(f)>0])
 
 def search_files(directory='.', extension=''):
     extension = extension.lower()
@@ -178,6 +188,7 @@ def to_numpy(a_tensor):
     return a_tensor.detach().numpy()
 
 def perturb(a_array, intensity=0.01, noise_type="normal"):
+    if intensity <= 0.0: return a_array
     if noise_type == "normal": 
         return a_array + intensity*np.std(a_array)*np.random.randn(a_array.shape[0], a_array.shape[1])
     elif noise_type == "uniform": 

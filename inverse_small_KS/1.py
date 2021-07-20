@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import matplotlib.pyplot as plt
+
+# always import gbm_algos first !
+import xgboost, lightgbm, catboost
 from gplearn.genetic import SymbolicRegressor
 
 # To access the contents of the parent dir
@@ -14,9 +18,6 @@ from preprocess import *
 from optimizers import Lookahead, AdamGC, SGDGC
 from madgrad import MADGRAD
 from lbfgsnew import LBFGSNew
-
-# Modify at /usr/local/lib/python3.9/site-packages/torch_lr_finder/lr_finder.py
-# from torch_lr_finder import LRFinder
 
 # Tracking
 from tqdm import trange
@@ -36,16 +37,28 @@ x = data['x']
 X, T = np.meshgrid(x, t)
 Exact = data['u'].T
 
+# Adding noise
+noise_intensity = 0.01
+noisy_xt = False
+
+Exact = perturb(Exact, intensity=noise_intensity, noise_type="normal")
+print("Perturbed Exact with intensity =", float(noise_intensity))
+
 x_star = X.flatten()[:,None]
 t_star = T.flatten()[:,None]
 X_star = np.hstack((x_star, t_star))
 u_star = Exact.T.flatten()[:,None]
 
+if noisy_xt: 
+    print("Noisy (x, t)")
+    X_star = perturb(X_star, intensity=noise_intensity, noise_type="normal")
+else: print("Clean (x, t)")
+
 # Doman bounds
 lb = X_star.min(axis=0)
 ub = X_star.max(axis=0)
 
-N = 2000
+N = 5000
 print(f"Fine-tuning with {N} samples")
 idx = np.random.choice(X_star.shape[0], N, replace=False)
 X_u_train = X_star[idx, :]
@@ -70,7 +83,7 @@ feature_names=('uf', 'u_x', 'u_xx', 'u_xxxx'); feature2index = {}
 
 
 program = '''
--0.534833*X2-0.518928*X3-0.541081*X0*X1
+-0.534833*u_xx-0.518928*u_xxxx-0.541081*uf*u_x
 '''
 pde_expr, variables = build_exp(program); print(pde_expr, variables)
 mod = sympytorch.SymPyModule(expressions=[pde_expr]); mod.train()
@@ -105,7 +118,7 @@ class PINN(nn.Module):
         grads_dict, u_t = self.grads_dict(x, t)
         # MSE Loss
         if update_network_params:
-            mse_loss = F.mse_loss(grads_dict['X'+self.feature2index['uf']], y_input)
+            mse_loss = F.mse_loss(grads_dict["uf"], y_input)
             total_loss.append(mse_loss)
         # PDE Loss
         if update_pde_params:
@@ -119,18 +132,18 @@ class PINN(nn.Module):
         u_t = self.gradients(uf, t)[0]
         
         ### PDE Loss calculation ###
-        # Without calling grad
-        derivatives = {}
-        for t in self.diff_flag[0]:
-            if t=='uf': derivatives['X'+self.feature2index[t]] = uf
-            elif t=='x': derivatives['X'+self.feature2index[t]] = x
-        # With calling grad
-        for t in self.diff_flag[1]:
-            out = uf
-            for c in t:
-                if c=='x': out = self.gradients(out, x)[0]
-                elif c=='t': out = self.gradients(out, t)[0]
-            derivatives['X'+self.feature2index['u_'+t[::-1]]] = out
+        derivatives = group_diff(uf, (x, t), self.diff_flag[1], function_notation="u", gd_init={"uf":uf})
+        
+### Old and slow implementation ###
+#         for t in self.diff_flag[0]:
+#             if t=='uf': derivatives['X'+self.feature2index[t]] = uf
+#             elif t=='x': derivatives['X'+self.feature2index[t]] = x
+#         for t in self.diff_flag[1]:
+#             out = uf
+#             for c in t:
+#                 if c=='x': out = self.gradients(out, x)[0]
+#                 elif c=='t': out = self.gradients(out, t)[0]
+#             derivatives['X'+self.feature2index['u_'+t[::-1]]] = out
         
         return derivatives, u_t
     
@@ -160,6 +173,12 @@ pinn = PINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, 
 
 
 # In[6]:
+
+
+# pinn = load_weights(pinn, "./saved_path_inverse_small_KS/final_finetuned_pinn_5000.pth")
+
+
+# In[7]:
 
 
 def closure():
@@ -199,27 +218,48 @@ def mtl_closure():
 # In[ ]:
 
 
-epochs1, epochs2 = 1000, 50
+epochs1, epochs2 = 1000, 200
 # TODO: Save best state dict and training for more epochs.
-optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
+# optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
 pinn.train(); best_train_loss = 1e6
 
-print('1st Phase optimization using Adam with PCGrad gradient modification')
-for i in range(epochs1):
-    optimizer1.step(mtl_closure)
-    l = mtl_closure()
-    if (i % 10) == 0 or i == epochs1-1:
-        print("Epoch {}: ".format(i), l.item())
+# print('1st Phase optimization using Adam with PCGrad gradient modification')
+# for i in range(epochs1):
+#     optimizer1.step(mtl_closure)
+#     if (i % 10) == 0 or i == epochs1-1:
+#         l = mtl_closure()
+#         print("Epoch {}: ".format(i), l.item())
 
+pinn = load_weights(pinn, "./tmp.pth")
+        
 optimizer2 = torch.optim.LBFGS(pinn.parameters(), lr=1e-1, max_iter=500, max_eval=int(500*1.25), history_size=300, line_search_fn='strong_wolfe')
 print('2nd Phase optimization using LBFGS')
 for i in range(epochs2):
     optimizer2.step(closure)
-    l = closure()
     if (i % 10) == 0 or i == epochs2-1:
+        save(pinn, "./tmp.pth")
+        l = closure()
         print("Epoch {}: ".format(i), l.item())
 
 pred_params = [x.item() for x in pinn.callable_loss_fn.parameters()]
 print(pred_params)
 
-save(pinn, "./saved_path_inverse_small_KS/final_finetuned_pinn.pth")
+errs = 100*(np.array(pred_params)+1)
+print(errs.mean(), errs.std())
+
+save(pinn, "./tmp.pth")
+print("Done")
+
+# Clean Exact and (x, t)
+# [-0.999634325504303, -0.9994997382164001, -0.9995566010475159]
+# (0.04364450772603353, 0.005516461306387781)
+
+# Noisy Exact and clean (x, t)
+# 
+# 
+
+# Noisy Exact and noisy (x, t)
+#
+#
+
+# is the BEST
