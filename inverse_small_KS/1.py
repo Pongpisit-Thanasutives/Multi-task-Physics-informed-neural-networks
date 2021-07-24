@@ -41,7 +41,7 @@ Exact = data['u'].T
 
 # Adding noise
 noise_intensity = 0.01
-noisy_xt = True
+noisy_xt = False
 
 Exact = perturb(Exact, intensity=noise_intensity, noise_type="normal")
 print("Perturbed Exact with intensity =", float(noise_intensity))
@@ -70,7 +70,7 @@ u_train = u_star[idx,:]
 rpca_option = 2
 print("Running Robust PCA...")
 rpca = R_pca_numpy(X_u_train)
-X_train_L, X_train_S = rpca.fit(tol=1e-20, max_iter=25000, iter_print=100)
+X_train_L, X_train_S = rpca.fit(tol=1e-20, max_iter=30000, iter_print=100)
 print('Robust PCA Loss:', mean_squared_error(X_u_train, X_train_L+X_train_S))
 if rpca_option == 1:
     # Option I
@@ -193,7 +193,7 @@ pinn = PINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, 
 # In[6]:
 
 
-# pinn = load_weights(pinn, "tmp.pth")
+pinn = load_weights(pinn, "tmp.pth")
 
 
 # In[7]:
@@ -238,15 +238,15 @@ def mtl_closure():
 
 epochs1, epochs2 = 200, 50
 # TODO: Save best state dict and training for more epochs.
-optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
-pinn.train(); best_train_loss = 1e6
+# optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
+# pinn.train(); best_train_loss = 1e6
 
-print('1st Phase optimization using Adam with PCGrad gradient modification')
-for i in range(epochs1):
-    optimizer1.step(mtl_closure)
-    if (i % 10) == 0 or i == epochs1-1:
-        l = mtl_closure()
-        print("Epoch {}: ".format(i), l.item())
+# print('1st Phase optimization using Adam with PCGrad gradient modification')
+# for i in range(epochs1):
+#     optimizer1.step(mtl_closure)
+#     if (i % 10) == 0 or i == epochs1-1:
+#         l = mtl_closure()
+#         print("Epoch {}: ".format(i), l.item())
 
 save(pinn, "tmp.pth")
 
