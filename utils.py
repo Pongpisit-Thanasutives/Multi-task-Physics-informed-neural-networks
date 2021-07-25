@@ -187,20 +187,22 @@ def to_complex_tensor(arr, g=True):
 def to_numpy(a_tensor):
     return a_tensor.detach().numpy()
 
-def perturb(a_array, intensity=0.01, noise_type="normal"):
+def perturb(a_array, intensity=0.01, noise_type="normal", overwrite=True):
     if intensity <= 0.0: return a_array
     if noise_type == "normal": 
-        return a_array + intensity*np.std(a_array)*np.random.randn(a_array.shape[0], a_array.shape[1])
+        noise = intensity*np.std(a_array)*np.random.randn(a_array.shape[0], a_array.shape[1])
     elif noise_type == "uniform": 
-        return a_array + intensity*np.std(a_array)*np.random.uniform(a_array.shape[0], a_array.shape[1])
+        noise = intensity*np.std(a_array)*np.random.uniform(a_array.shape[0], a_array.shape[1])
     elif noise_type == "sparse": 
         noise = np.random.randn(a_array.shape[0], a_array.shape[1])
         mask = np.random.uniform(0, 1, (a_array.shape[0], a_array.shape[1]))
         sparsemask = np.where(mask>0.9, 1, 0)
-        return a_array + intensity*np.std(u)*noise*sparsemask
+        noise = intensity*np.std(u)*noise*sparsemask
     else: 
         print("Not recognized noise_type")
-        return a_array
+        noise = 0.0
+    if overwrite: return a_array + noise
+    else: return noise
 
 def sampling_unit_circle(N):
     points = []
