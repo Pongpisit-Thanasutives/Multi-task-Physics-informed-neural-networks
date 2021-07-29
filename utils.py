@@ -192,6 +192,7 @@ def perturb(a_array, intensity=0.01, noise_type="normal", overwrite=True):
     if noise_type == "normal": 
         noise = intensity*np.std(a_array)*np.random.randn(a_array.shape[0], a_array.shape[1])
     elif noise_type == "uniform": 
+        # This is hard...
         noise = intensity*np.std(a_array)*np.random.uniform(a_array.shape[0], a_array.shape[1])
     elif noise_type == "sparse": 
         noise = np.random.randn(a_array.shape[0], a_array.shape[1])
