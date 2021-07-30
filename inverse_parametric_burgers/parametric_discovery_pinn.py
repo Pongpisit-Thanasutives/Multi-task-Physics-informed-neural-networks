@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 class ParametricPINN(nn.Module):
-    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), n_funcs=2, scale=False, lb=None, ub=None, eq_name="burger"):
+    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), n_funcs=2, scale=False, lb=None, ub=None, eq_name="burger", beta=False):
         super(ParametricPINN, self).__init__()
         # The default config is only for the Burgers' equation.
         self.inp_dims = inp_dims    
@@ -106,6 +106,26 @@ class ParametricPINN(nn.Module):
     
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
+
+class RobustFinalParametricPINN(nn.Module):
+    def __init__(self, pinn, beta1=0.0, beta2=0.0, is_beta1_trainable=True, is_beta2_trainable=True, hidden_nodes=50):
+        super(RobustFinalParametricPINN, self).__init__()
+        self.pinn = pinn
+        
+        self.beta1 = beta1
+        self.beta2 = beta2
+        
+        if is_beta1_trainable: self.beta1 = nn.Parameter(data=torch.tensor([self.beta1]), requires_grad=True)
+        if is_beta2_trainable: self.beta2 = nn.Parameter(data=torch.tensor([self.beta2]), requires_grad=True)
+        
+        self.proj = nn.Sequential(nn.Linear(2, hidden_nodes), nn.Tanh(), nn.Linear(hidden_nodes, 2), nn.Tanh())
+        
+    def forward(self, x, t):
+        return self.pinn(x, t)
+            
+    def loss(self, H, S, y_train):
+        recov = H + (1-F.relu(self.beta1))*S + self.beta2*self.proj(S)
+        return self.pinn.loss(recov[:, 0:1], recov[:, 1:2], y_train)
 
 class FuncNet(nn.Module):
     def __init__(self, inp_dims=2, n_funcs=2, hidden_dims=50, activation_module=nn.Tanh()):
