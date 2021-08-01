@@ -112,11 +112,11 @@ class RobustPCANN(nn.Module):
         super(RobustPCANN, self).__init__()
         if is_beta_trainable: self.beta = nn.Parameter(data=torch.FloatTensor([beta]), requires_grad=True)
         else: self.beta = beta
-        self.proj = nn.Sequential(nn.Linear(2, hidden_dims), nn.Tanh(), nn.Linear(hidden_dims, 2))
+        self.proj = nn.Sequential(nn.Linear(inp_dims, hidden_dims), nn.Tanh(), nn.Linear(hidden_dims, inp_dims))
 
-    def forward(self, O, S, normalize=True):
+    def forward(self, O, S, order="fro", normalize=True):
         corr = self.proj(S)
-        corr = corr / torch.norm(corr, p="fro")
+        if normalize: corr = corr / torch.norm(corr, p=order)
         return O - self.beta*corr
 
 class FuncNet(nn.Module):
