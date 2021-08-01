@@ -108,16 +108,16 @@ class ParametricPINN(nn.Module):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
 
 class RobustPCANN(nn.Module):
-    def __init__(self, beta=0.0, inp_dims=2, hidden_dims=50):
+    def __init__(self, beta=0.0, is_beta_trainable=True, inp_dims=2, hidden_dims=50):
         super(RobustPCANN, self).__init__()
-        self.beta = nn.Parameter(data=torch.FloatTensor([beta]), requires_grad=True)
+        if is_beta_trainable: self.beta = nn.Parameter(data=torch.FloatTensor([beta]), requires_grad=True)
+        else: self.beta = beta
         self.proj = nn.Sequential(nn.Linear(2, hidden_dims), nn.Tanh(), nn.Linear(hidden_dims, 2))
-            
+
     def forward(self, O, S, normalize=True):
         corr = self.proj(S)
         corr = corr / torch.norm(corr, p="fro")
-        recov = O - self.beta*corr
-        return recov
+        return O - self.beta*corr
 
 class FuncNet(nn.Module):
     def __init__(self, inp_dims=2, n_funcs=2, hidden_dims=50, activation_module=nn.Tanh()):
