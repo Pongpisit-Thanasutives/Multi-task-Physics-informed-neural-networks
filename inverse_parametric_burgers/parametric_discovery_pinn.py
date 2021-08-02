@@ -118,7 +118,7 @@ class RobustPCANN(nn.Module):
         corr = self.proj(S)
         if normalize: corr = corr / torch.norm(corr, p=order)
         return O - self.beta*corr
-
+    
 class FuncNet(nn.Module):
     def __init__(self, inp_dims=2, n_funcs=2, hidden_dims=50, activation_module=nn.Tanh()):
         super(FuncNet, self).__init__()

@@ -491,3 +491,15 @@ class ComplexAutoEncoder(nn.Module):
         self.eval()
         if type(X) == torch.Tensor: X = real2cplx(X)
         return complex_mse(self(X), X).item()
+
+class RobustPCANN(nn.Module):
+    def __init__(self, beta=0.0, is_beta_trainable=True, inp_dims=2, hidden_dims=50):
+        super(RobustPCANN, self).__init__()
+        if is_beta_trainable: self.beta = nn.Parameter(data=torch.FloatTensor([beta]), requires_grad=True)
+        else: self.beta = beta
+        self.proj = nn.Sequential(nn.Linear(inp_dims, hidden_dims), nn.Tanh(), nn.Linear(hidden_dims, inp_dims), nn.Tanh())
+
+    def forward(self, O, S, order="fro", normalize=True):
+        corr = self.proj(S)
+        if normalize: corr = corr / torch.norm(corr, p=order)
+        return O - torch.clamp(self.beta, min=-1.0, max=1.0)*corr
