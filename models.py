@@ -499,7 +499,9 @@ class RobustPCANN(nn.Module):
         else: self.beta = beta
         self.proj = nn.Sequential(nn.Linear(inp_dims, hidden_dims), nn.Tanh(), nn.Linear(hidden_dims, inp_dims), nn.Tanh())
 
-    def forward(self, O, S, order="fro", normalize=True):
+    def forward(self, O, S, order="fro", normalize=True, is_clamp=True):
         corr = self.proj(S)
         if normalize: corr = corr / torch.norm(corr, p=order)
-        return O - torch.clamp(self.beta, min=-1.0, max=1.0)*corr
+        if is_clamp: beta = torch.clamp(self.beta, min=-1.0, max=1.0)
+        else: beta = self.beta
+        return O - beta*corr

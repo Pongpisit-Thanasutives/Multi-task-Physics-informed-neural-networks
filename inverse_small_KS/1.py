@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import matplotlib.pyplot as plt
-
 # always import gbm_algos first !
 import xgboost, lightgbm, catboost
 from gplearn.genetic import SymbolicRegressor
@@ -13,6 +11,7 @@ import os
 from scipy.io import loadmat
 from utils import *
 from preprocess import *
+from models import RobustPCANN
 
 # Let's do facy optimizers
 from optimizers import Lookahead, AdamGC, SGDGC
@@ -20,6 +19,9 @@ from madgrad import MADGRAD
 from lbfgsnew import LBFGSNew
 
 from pytorch_robust_pca import *
+
+# Modify at /usr/local/lib/python3.9/site-packages/torch_lr_finder/lr_finder.py
+from torch_lr_finder import LRFinder
 
 # Tracking
 from tqdm import trange
@@ -67,26 +69,23 @@ X_u_train = X_star[idx, :]
 u_train = u_star[idx,:]
 
 # Robust PCA
-rpca_option = 2
-print("Running Robust PCA...")
+print("Running Robust PCA on X_u_train")
 rpca = R_pca_numpy(X_u_train)
-X_train_L, X_train_S = rpca.fit(tol=1e-20, max_iter=30000, iter_print=100)
+X_train_L, X_train_S = rpca.fit(tol=1e-20, max_iter=25000, iter_print=100, verbose=False)
 print('Robust PCA Loss:', mean_squared_error(X_u_train, X_train_L+X_train_S))
-if rpca_option == 1:
-    # Option I
-    X_u_train = X_u_train-X_train_S
-elif rpca_option == 2:
-    # Option II
-    X_u_train = X_train_L+X_train_S
-else:
-    X_u_train = X_u_train
-    print("Robust PCA has no effect on X_train")
+X_train_S = to_tensor(X_train_S, False)
+
+print("Running Robust PCA on X_u_train")
+rpca = R_pca_numpy(u_train)
+u_train_L, u_train_S = rpca.fit(tol=1e-20, max_iter=25000, iter_print=100, verbose=False)
+print('Robust PCA Loss:', mean_squared_error(u_train, u_train_L+u_train_S))
+u_train_S = to_tensor(u_train_S, False)
+
+del rpca, X_train_L, u_train_L, X_star, u_star, Exact, data
 
 # Convert to torch.tensor
 X_u_train = to_tensor(X_u_train, True)
 u_train = to_tensor(u_train, False)
-X_star = to_tensor(X_star, True)
-u_star = to_tensor(u_star, False)
 
 # lb and ub are used in adversarial training
 scaling_factor = 1.0
@@ -110,11 +109,16 @@ mod = sympytorch.SymPyModule(expressions=[pde_expr]); mod.train()
 # In[4]:
 
 
-class PINN(nn.Module):
+class RobustPINN(nn.Module):
     def __init__(self, model, loss_fn, index2features, scale=False, lb=None, ub=None, pretrained=False):
-        super(PINN, self).__init__()
+        super(RobustPINN, self).__init__()
         self.model = model
         if not pretrained: self.model.apply(self.xavier_init)
+            
+        # Robust Beta-PCA
+        self.inp_rpca = RobustPCANN(beta=0.0, is_beta_trainable=True, inp_dims=2, hidden_dims=32)
+        self.out_rpca = RobustPCANN(beta=0.0, is_beta_trainable=True, inp_dims=1, hidden_dims=32)
+            
         self.callable_loss_fn = loss_fn
         self.index2features = index2features; self.feature2index = {}
         for idx, fn in enumerate(self.index2features): self.feature2index[fn] = str(idx)
@@ -131,9 +135,13 @@ class PINN(nn.Module):
         if self.scale: H = self.neural_net_scale(H)
         return self.model(H)
     
-    def loss(self, x, t, y_input, update_network_params=True, update_pde_params=True):
+    def loss(self, X_input, X_input_S, y_input, y_input_S, update_network_params=True, update_pde_params=True):
         total_loss = []
-        grads_dict, u_t = self.grads_dict(x, t)
+        
+        X_input = self.inp_rpca(X_input, X_input_S, normalize=True, is_clamp=False)
+        y_input = self.out_rpca(y_input, y_input_S, normalize=True, is_clamp=False)
+        
+        grads_dict, u_t = self.grads_dict(X_input[:, 0:1], X_input[:, 1:2])
         # MSE Loss
         if update_network_params:
             mse_loss = F.mse_loss(grads_dict["uf"], y_input)
@@ -151,17 +159,6 @@ class PINN(nn.Module):
         
         ### PDE Loss calculation ###
         derivatives = group_diff(uf, (x, t), self.diff_flag[1], function_notation="u", gd_init={"uf":uf})
-        
-### Old and slow implementation ###
-#         for t in self.diff_flag[0]:
-#             if t=='uf': derivatives['X'+self.feature2index[t]] = uf
-#             elif t=='x': derivatives['X'+self.feature2index[t]] = x
-#         for t in self.diff_flag[1]:
-#             out = uf
-#             for c in t:
-#                 if c=='x': out = self.gradients(out, x)[0]
-#                 elif c=='t': out = self.gradients(out, t)[0]
-#             derivatives['X'+self.feature2index['u_'+t[::-1]]] = out
         
         return derivatives, u_t
     
@@ -187,22 +184,15 @@ for p in semisup_model_state_dict:
         parameters[p.replace(inner_part, "")] = semisup_model_state_dict[p]
 model.load_state_dict(parameters)
 
-pinn = PINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, lb=lb, ub=ub, pretrained=True)
+pinn = RobustPINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, lb=lb, ub=ub, pretrained=True)
 
-
-# In[6]:
-
-
-pinn = load_weights(pinn, "tmp.pth")
-
-
-# In[7]:
-
+pinn = load_weights(pinn, "./saved_path_inverse_small_KS/noisy2_final_finetuned_doublebetarpca_pinn_5000.pth")
+# pinn = load_weights(pinn, "tmp_f1.pth")
 
 def closure():
     if torch.is_grad_enabled():
         optimizer2.zero_grad()
-    losses = pinn.loss(X_u_train[:, 0:1], X_u_train[:, 1:2], u_train, update_network_params=True, update_pde_params=True)
+    losses = pinn.loss(X_u_train, X_train_S, u_train, u_train_S, update_network_params=True, update_pde_params=True)
     l = sum(losses)
     if l.requires_grad:
         l.backward(retain_graph=True)
@@ -210,7 +200,7 @@ def closure():
 
 def mtl_closure():
     n_obj = 2 # There are two tasks
-    losses = pinn.loss(X_u_train[:, 0:1], X_u_train[:, 1:2], u_train, update_network_params=True, update_pde_params=True)
+    losses = pinn.loss(X_u_train, X_train_S, u_train, u_train_S, update_network_params=True, update_pde_params=True)
     updated_grads = []
     
     for i in range(n_obj):
@@ -236,20 +226,18 @@ def mtl_closure():
 # In[8]:
 
 
-epochs1, epochs2 = 200, 50
+epochs1, epochs2 = 0, 50
 # TODO: Save best state dict and training for more epochs.
-# optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
-# pinn.train(); best_train_loss = 1e6
+optimizer1 = MADGRAD(pinn.parameters(), lr=1e-7, momentum=0.9)
+pinn.train(); best_train_loss = 1e6
 
-# print('1st Phase optimization using Adam with PCGrad gradient modification')
-# for i in range(epochs1):
-#     optimizer1.step(mtl_closure)
-#     if (i % 10) == 0 or i == epochs1-1:
-#         l = mtl_closure()
-#         print("Epoch {}: ".format(i), l.item())
-
-save(pinn, "tmp.pth")
-
+print('1st Phase optimization using Adam with PCGrad gradient modification')
+for i in range(epochs1):
+    optimizer1.step(mtl_closure)
+    if (i % 10) == 0 or i == epochs1-1:
+        l = mtl_closure()
+        print("Epoch {}: ".format(i), l.item())
+        
 optimizer2 = torch.optim.LBFGS(pinn.parameters(), lr=1e-1, max_iter=500, max_eval=int(500*1.25), history_size=300, line_search_fn='strong_wolfe')
 print('2nd Phase optimization using LBFGS')
 for i in range(epochs2):
@@ -270,5 +258,48 @@ print(pred_params)
 # In[10]:
 
 
-errs = 100*(np.array(pred_params)+1)
+errs = 100*np.abs(np.array(pred_params)+1)
 print(errs.mean(), errs.std())
+
+
+# In[11]:
+
+
+### Without AutoEncoder ###
+
+# Clean Exact and (x, t)
+# [-0.999634325504303, -0.9994997382164001, -0.9995566010475159]
+# (0.04364450772603353, 0.005516461306387781)
+
+# Pretrained with final_finetuned_pinn_5000 (not used)
+# [-0.9996052980422974, -0.9995099902153015, -0.9995319247245789]
+# 0.04509290059407552 0.0040754479422416435
+
+# Noisy Exact and clean (x, t)
+# [-0.9967969655990601, -0.9969800114631653, -0.9973703026771545]
+# (0.2950906753540039, 0.023910676954986623)
+
+# Noisy Exact and noisy (x, t)
+# [-0.9975059032440186, -0.9962050914764404, -0.9969104528427124]
+# 0.3126184145609538 0.05316856937153804
+
+
+# In[12]:
+
+
+### Without AutoEncoder & With Robust PCA ###
+
+# Noisy Exact and clean (x, t)
+# [-1.0003160238265991, -1.0005097389221191, -0.9997726678848267]
+# (0.035103162129720054, 0.011791963483533422)
+
+# Noisy Exact and noisy (x, t) + Robust PCA
+# [-1.000351071357727, -0.9991073608398438, -0.9980993866920471]
+# (0.08140603701273601 0.09209241474722876)
+
+
+# In[ ]:
+
+
+
+
