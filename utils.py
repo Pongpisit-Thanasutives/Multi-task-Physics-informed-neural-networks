@@ -664,3 +664,12 @@ def create_data_for_feynman(G, target, filename):
                 file.write(string_out+'\n') 
     print("Done writing into the file")
     file.close()
+
+def fft1d_denoise(signal, thres=None):
+    n = len(signal)
+    fhat = torch.fft.fft(signal, n)
+    PSD = (fhat.real**2 + fhat.imag**2) / n
+    if thres is None: thres = (PSD.mean() + 5*PSD.std()).item()
+    indices = PSD > thres
+    fhat = indices * fhat
+    return torch.fft.ifft(fhat).real, PSD
