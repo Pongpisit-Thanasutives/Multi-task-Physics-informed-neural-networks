@@ -602,6 +602,9 @@ def compute_from_description(description, dictionary, split_keys=(" ", "^")):
             out = out*dictionary[t]**int(deg)
     return out
 
+def mse_function(v1, v2):
+    return ((v1-v2)**2).mean()
+
 # calculate aic for regression
 def calculate_aic(n, mse, num_params):
 	aic = n * log(mse) + 2 * num_params
@@ -665,6 +668,7 @@ def create_data_for_feynman(G, target, filename):
     print("Done writing into the file")
     file.close()
 
+# pytorch version of fft denoisg algorithm.
 def fft1d_denoise(signal, thres=None, c=0):
     signal = signal.flatten()
     n = len(signal)
@@ -674,4 +678,16 @@ def fft1d_denoise(signal, thres=None, c=0):
     indices = PSD > thres
     fhat = indices * fhat
     out = torch.fft.ifft(fhat).real
+    return out.reshape(-1, 1), PSD
+
+# numpy version of fft denoising algorithm.
+def fft1d_denoise_numpy(signal, thres=None, c=0):
+    signal = signal.flatten()
+    n = len(signal)
+    fhat = np.fft.fft(signal, n)
+    PSD = (fhat.real**2 + fhat.imag**2) / n
+    if thres is None: thres = (PSD.mean() + c*PSD.std())
+    indices = PSD > thres
+    fhat = indices * fhat
+    out = np.fft.ifft(fhat).real
     return out.reshape(-1, 1), PSD
