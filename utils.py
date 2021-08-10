@@ -1,4 +1,4 @@
-# Author: Pongpisit Thanasutives
+# Author: Pongpisit Thanasutives (Osaka university)
 # ipython nbconvert notebook.ipynb --to script
 
 import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
