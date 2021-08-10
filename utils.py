@@ -1,3 +1,4 @@
+# Author: Pongpisit Thanasutives
 # ipython nbconvert notebook.ipynb --to script
 
 import os; os.environ['KMP_DUPLICATE_LIB_OK']='True'
