@@ -670,7 +670,7 @@ def create_data_for_feynman(G, target, filename):
     file.close()
 
 # pytorch version of fft denoisg algorithm.
-def fft1d_denoise(signal, thres=None, c=0):
+def fft1d_denoise(signal, thres=None, c=0, return_real=True):
     signal = signal.flatten()
     n = len(signal)
     fhat = torch.fft.fft(signal, n)
@@ -678,11 +678,12 @@ def fft1d_denoise(signal, thres=None, c=0):
     if thres is None: thres = (PSD.mean() + c*PSD.std()).item()
     indices = PSD > thres
     fhat = indices * fhat
-    out = torch.fft.ifft(fhat).real
+    out = torch.fft.ifft(fhat)
+    if return_real: out = out.real
     return out.reshape(-1, 1), PSD
 
 # numpy version of fft denoising algorithm.
-def fft1d_denoise_numpy(signal, thres=None, c=0):
+def fft1d_denoise_numpy(signal, thres=None, c=0, return_real=True):
     signal = signal.flatten()
     n = len(signal)
     fhat = np.fft.fft(signal, n)
@@ -690,5 +691,6 @@ def fft1d_denoise_numpy(signal, thres=None, c=0):
     if thres is None: thres = (PSD.mean() + c*PSD.std())
     indices = PSD > thres
     fhat = indices * fhat
-    out = np.fft.ifft(fhat).real
+    out = np.fft.ifft(fhat)
+    if return_real: out = out.real
     return out.reshape(-1, 1), PSD
