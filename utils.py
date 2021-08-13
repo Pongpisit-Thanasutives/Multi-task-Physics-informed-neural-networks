@@ -680,7 +680,7 @@ def fft1d_denoise(signal, thres=None, c=0, return_real=True):
     fhat = indices * fhat
     out = torch.fft.ifft(fhat)
     if return_real: out = out.real
-    return out.reshape(-1, 1), PSD
+    return out.reshape(-1, 1), fhat, PSD
 
 # numpy version of fft denoising algorithm.
 def fft1d_denoise_numpy(signal, thres=None, c=0, return_real=True):
@@ -693,7 +693,7 @@ def fft1d_denoise_numpy(signal, thres=None, c=0, return_real=True):
     fhat = indices * fhat
     out = np.fft.ifft(fhat)
     if return_real: out = out.real
-    return out.reshape(-1, 1), PSD
+    return out.reshape(-1, 1), fhat, PSD
 
 class FFTNN(nn.Module):
     def __init__(self, c=0.0, minmax=(-5.0, 5.0)):
