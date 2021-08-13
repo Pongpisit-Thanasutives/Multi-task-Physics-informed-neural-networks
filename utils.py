@@ -694,3 +694,17 @@ def fft1d_denoise_numpy(signal, thres=None, c=0, return_real=True):
     out = np.fft.ifft(fhat)
     if return_real: out = out.real
     return out.reshape(-1, 1), PSD
+
+class FFTNN(nn.Module):
+    def __init__(self, c=0.0, minmax=(-5.0, 5.0)):
+        super(FFTNN, self).__init__()
+        self.c = nn.Parameter(data=torch.FloatTensor([float(c)]))
+        self.mini = minmax[0]
+        self.maxi = minmax[1]
+    def forward(self, PSD):
+        th = PSD.mean()+torch.clamp(self.c, min=self.mini, max=self.maxi)*PSD.std()
+        indices = F.relu(PSD-th)
+        d = torch.ones_like(indices)
+        d[indices>0] = indices[indices>0]
+        indices = indices / d
+        return indices
