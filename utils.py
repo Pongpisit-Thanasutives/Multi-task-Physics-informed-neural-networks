@@ -50,6 +50,9 @@ def mymode(a_list):
     if PY_VERSION >= 8: return multimode([f[0] for f in a_list if len(f)>0])[0]
     else: return common_element([f[0] for f in a_list if len(f)>0])
 
+def tuple_append(tup, ele):
+    return tuple(list(tup).append(ele))
+
 def search_files(directory='.', extension=''):
     extension = extension.lower()
     for dirpath, dirnames, files in os.walk(directory):
