@@ -17,3 +17,17 @@ For a small (lower data samples) version of KdV and KS, check out /inverse_small
 This repo also additionally include the ladder networks (https://arxiv.org/abs/1507.02672) simple implementation in pytorch. See ladder.py
 
 VAE & AutoEncoder implementation -> /vae_experiments
+
+if you find this repo useful, please consider citing this!
+
+## Citation
+```
+@article{thanasutives2021adversarial,
+      title={Adversarial Multi-task Learning Enhanced Physics-informed Neural Networks for Solving Partial Differential Equations}, 
+      author={Pongpisit Thanasutives and Masayuki Numao and Ken-ichi Fukui},
+      year={2021},
+      eprint={2104.14320},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
