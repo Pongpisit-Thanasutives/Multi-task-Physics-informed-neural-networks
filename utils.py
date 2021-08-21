@@ -705,7 +705,8 @@ class FFTNN(nn.Module):
         self.mini = minmax[0]
         self.maxi = minmax[1]
     def forward(self, PSD):
-        th = PSD.mean()+torch.clamp(self.c, min=self.mini, max=self.maxi)*PSD.std()
+        # Old implementation: th = PSD.mean()+torch.clamp(self.c, min=self.mini, max=self.maxi)*PSD.std()
+        th = F.relu(PSD.mean()+torch.clamp(self.c, min=self.mini, max=self.maxi)*PSD.std())
         indices = F.relu(PSD-th)
         d = torch.ones_like(indices)
         d[indices>0] = indices[indices>0]
