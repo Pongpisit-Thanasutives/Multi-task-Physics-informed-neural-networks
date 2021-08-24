@@ -440,6 +440,11 @@ class LadderUncertLoss(nn.Module):
         losses = torch.cat([mse_loss, unsup_loss])
         return weights.dot(losses)
 
+def kl_normal(p, q):
+    input_distribution = torch.distributions.Normal(p.mean(), p.std())
+    target_distribution = torch.distributions.Normal(q.mean(), q.std())
+    return torch.distributions.kl_divergence(input_distribution, target_distribution).mean().item()
+
 def distance_loss(inputs, targets, distance_function=torch_wasserstein_loss):
      total_loss = 0.0
      assert inputs.shape == targets.shape
