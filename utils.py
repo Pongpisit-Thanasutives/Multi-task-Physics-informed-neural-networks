@@ -23,6 +23,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable, grad
 from torch.utils.data import DataLoader, Dataset
+from better_lstm import LSTM as BLSTM
 
 import math
 if PY_VERSION >= 8: from statistics import multimode
@@ -720,21 +721,19 @@ class FFTNN(nn.Module):
         return indices
 
 class FFTLSTM(nn.Module):
-    def __init__(self, seq_len=None, num_layers=1, bidirectional=False, is_fc=False, minmax=(-5.0, 5.0)):
+    def __init__(self, n_hiddens=1, num_layers=1, bidirectional=False, dropoutw=0.2, minmax=(-5.0, 5.0)):
         super(FFTLSTM, self).__init__()
-        self.lstm = nn.LSTM(1, 1, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
-        self.fc = None; self.is_fc = is_fc
-        if self.is_fc: self.fc = nn.Linear(seq_len, 1)
+        self.lstm = BLSTM(1, n_hiddens, num_layers=num_layers, batch_first=True, bidirectional=bidirectional, dropoutw=dropoutw)
+        self.fc = nn.Linear(n_hiddens, 1)
         self.mini = minmax[0]
         self.maxi = minmax[1]
 
     def forward(self, PSD):
-        # Old implementation: th = PSD.mean()+torch.clamp(self.c, min=self.mini, max=self.maxi)*PSD.std()
         m, s = PSD.mean(), PSD.std()
         normalized_PSD = (PSD-m)/s
-        if self.is_fc: h_state = self.fc(normalized_PSD.reshape(-1, 1))
-        else: out_seq, (h_state, mem_cell) = self.lstm(normalized_PSD.view(1, len(PSD), 1))
-        th = F.relu(m+torch.clamp(h_state.mean(), min=self.mini, max=self.maxi)*s)
+        out_seq, (h_state, _) = self.lstm(normalized_PSD.view(1, len(PSD), 1))
+        h_state = self.fc(h_state[-1])
+        th = F.relu(m+torch.clamp(h_state, min=self.mini, max=self.maxi)*s)
         indices = F.relu(PSD-th)
         d = torch.ones_like(indices)
         d[indices>0] = indices[indices>0]
