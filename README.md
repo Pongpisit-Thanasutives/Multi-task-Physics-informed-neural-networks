@@ -16,7 +16,7 @@ For a small (lower data samples) version of KdV and KS, check out /inverse_small
 
 This repo also additionally include the ladder networks (https://arxiv.org/abs/1507.02672) simple implementation in pytorch. See ladder.py
 
-VAE & AutoEncoder implementation -> /vae_experiments
+VAE & AutoEncoder implementation -> /vae_experiments (Credits go to https://github.com/hellojinwoo/TorchCoder for the LSTM autoencoder implementation.)
 
 if you find this repo useful, please consider citing this!
 
