@@ -739,3 +739,24 @@ class FFTLSTM(nn.Module):
         d[indices>0] = indices[indices>0]
         indices = indices / d
         return indices
+
+class FFTConv(nn.Module):
+    def __init__(self, seq_len, n_hiddens=None, n_channels=1, kernel_size=1, minmax=(-5.0, 5.0)):
+        super(FFTConv, self).__init__()
+        if n_hiddens is None: n_hiddens = seq_len
+        self.conv = nn.Sequential(nn.Conv1d(1, n_channels, kernel_size, padding='same'), nn.AdaptiveMaxPool1d(n_hiddens))
+        self.fc = nn.Linear(n_hiddens, 1)
+        self.mini = minmax[0]
+        self.maxi = minmax[1]
+
+    def forward(self, PSD):
+        m, s = PSD.mean(), PSD.std()
+        normalized_PSD = (PSD-m)/s
+        h_state = self.conv(normalized_PSD.view(1, 1, len(PSD))).flatten()
+        h_state = self.fc(h_state.view(1, len(h_state)))
+        th = F.relu(m+torch.clamp(h_state, min=self.mini, max=self.maxi)*s)
+        indices = F.relu(PSD-th)
+        d = torch.ones_like(indices)
+        d[indices>0] = indices[indices>0]
+        indices = indices / d
+        return indices
