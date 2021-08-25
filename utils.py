@@ -752,7 +752,8 @@ class FFTConv(nn.Module):
     def forward(self, PSD):
         m, s = PSD.mean(), PSD.std()
         normalized_PSD = (PSD-m)/s
-        h_state = self.conv(normalized_PSD.view(1, 1, len(PSD))).flatten()
+        # also a good choice: h_state = F.silu(self.conv(normalized_PSD.view(1, 1, len(PSD)))).flatten()
+        h_state = F.relu(self.conv(normalized_PSD.view(1, 1, len(PSD)))).flatten()
         h_state = self.fc(h_state.view(1, len(h_state)))
         th = F.relu(m+torch.clamp(h_state, min=self.mini, max=self.maxi)*s)
         indices = F.relu(PSD-th)
