@@ -379,6 +379,14 @@ class PartialDerivativeCalculator(nn.Module):
             else: print("Error")
             out = out+computed
         return out
+
+
+class CancelOut(nn.Module):
+    def __init__(self,inp, *kargs, **kwargs):
+        super(CancelOut, self).__init__()
+        self.weights = nn.Parameter(torch.zeros(inp,requires_grad = True) + 4)
+    def forward(self, x):
+        return (x * torch.sigmoid(self.weights.float()))
    
 # return reconstruction error + KL divergence losses
 def vae_loss(recon_x, x, mu, log_var):
