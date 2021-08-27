@@ -763,7 +763,7 @@ class FFTConv(nn.Module):
         return indices
 
 class FFTTh(nn.Module):
-    def __init__(self, c=1.0, minmax=(-5.0, 5.0)):
+    def __init__(self, c=0.9, minmax=(-5.0, 5.0)):
         super(FFTTh, self).__init__()
         self.c = nn.Parameter(data=torch.FloatTensor([float(c)]))
         self.mini = minmax[0]
@@ -772,7 +772,7 @@ class FFTTh(nn.Module):
     def forward(self, PSD):
         m, s = PSD.mean(), PSD.std()
         normalized_PSD = (PSD-m)/s
-        th = F.relu(m+torch.clamp(normalized_PSD.max()-self.c, min=self.mini, max=self.maxi)*s)
+        th = F.relu(m+torch.clamp(self.c*normalized_PSD.max(), min=self.mini, max=self.maxi)*s)
         indices = F.relu(PSD-th)
         d = torch.ones_like(indices)
         d[indices>0] = indices[indices>0]
