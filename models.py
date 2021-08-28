@@ -382,9 +382,9 @@ class PartialDerivativeCalculator(nn.Module):
 
 
 class CancelOut(nn.Module):
-    def __init__(self,inp, *kargs, **kwargs):
+    def __init__(self, n_features, *kargs, **kwargs):
         super(CancelOut, self).__init__()
-        self.weights = nn.Parameter(torch.zeros(inp,requires_grad = True) + 4)
+        self.weights = nn.Parameter(torch.zeros(n_features, requires_grad=True) + 4)
     def forward(self, x):
         return (x * torch.sigmoid(self.weights.float()))
    
