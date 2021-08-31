@@ -30,6 +30,7 @@ if PY_VERSION >= 8: from statistics import multimode
 else: from statistics import mode
 import numpy as np
 from numpy import array as npar
+from numpy import linalg
 print("You can use npar for np.array")
 import pandas as pd
 from sklearn.metrics import *
@@ -445,6 +446,12 @@ def kl_normal(p, q):
     input_distribution = torch.distributions.Normal(p.mean(), p.std())
     target_distribution = torch.distributions.Normal(q.mean(), q.std())
     return torch.distributions.kl_divergence(input_distribution, target_distribution).mean().item()
+
+# Only for real signal
+def percent_error(sig, ground):
+    sig = sig.flatten()
+    ground = ground.flatten()
+    return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(ground, 1)
 
 def distance_loss(inputs, targets, distance_function=torch_wasserstein_loss):
      total_loss = 0.0
