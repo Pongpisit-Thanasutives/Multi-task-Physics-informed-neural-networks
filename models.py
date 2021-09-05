@@ -309,6 +309,13 @@ class UncertaintyWeightedLoss(nn.Module):
             loss_sum.append(0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2))
         return loss_sum
 
+class TanhProb(nn.Module):
+    def __init__(self,):
+        super(TanhProb, self).__init__()
+        self.act = nn.Tanh()
+    def forward(self, X):
+        return 0.5*(self.act(X)+1.0)
+
 # My version of sympytorch.SymPyModule
 class SympyTorch(nn.Module):
     def __init__(self, expressions):
