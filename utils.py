@@ -250,6 +250,11 @@ def numpy_scale_to_range(arr, lb, ub):
 def cap_values(a_tensor, lb, ub):
     return (a_tensor-lb)/(ub-lb)
 
+def binarize(a_tensor, th):
+    indices = a_tensor > th
+    out = a_tensor * indices
+    return (out + (1-out)) * indices
+
 def diff_order(dterm):
     return dterm.split("_")[-1][::-1]
 
