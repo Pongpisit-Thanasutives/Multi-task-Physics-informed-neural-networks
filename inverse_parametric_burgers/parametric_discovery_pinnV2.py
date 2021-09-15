@@ -30,7 +30,6 @@ class ParametricSolver(nn.Module):
         if self.scale: inp = self.model(inp)                
         return self.model(inp)
 
-    # This func should depend on the self.eq_name as well.
     def gradients_dict(self, x, t):
         u = self.forward(x, t)
         u_t = diff(u, t)
@@ -38,6 +37,14 @@ class ParametricSolver(nn.Module):
         u_xx = diff(u_x, x)
         u_xxx = diff(u_xx, x)
         return cat(u, eval(self.input_feature), u_x, u_xx, u_xxx), u_t
+
+    def get_selector_data(self, x, t):
+        u = self.forward(x, t)
+        u_t = diff(u, t)
+        u_x = diff(u, x)
+        u_xx = diff(u_x, x)
+        u_xxx = diff(u_xx, x)
+        return cat(t, x, u, u_x, u_xx, u_xxx), u_t
     
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
