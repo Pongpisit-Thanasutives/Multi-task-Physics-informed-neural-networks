@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 class ParametricSolver(nn.Module):
-    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), scale=False, lb=None, ub=None, input_feature=None):
+    def __init__(self, inp_dims=2, hidden_dims=50, out_dims=1, activation_module=nn.Tanh(), scale=False, lb=None, ub=None, input_feature=None, highest_order=3):
         super(ParametricSolver, self).__init__()
         self.inp_dims = inp_dims
         self.hidden_dims = hidden_dims
@@ -24,6 +24,7 @@ class ParametricSolver(nn.Module):
                                             nn.Linear(hidden_dims, out_dims))
 
         self.input_feature = input_feature
+        self.highest_order = highest_order
 
     def forward(self, x, t):
         inp = cat(x, t)
@@ -31,20 +32,33 @@ class ParametricSolver(nn.Module):
         return self.model(inp)
 
     def gradients_dict(self, x, t):
-        u = self.forward(x, t)
-        u_t = diff(u, t)
-        u_x = diff(u, x)
-        u_xx = diff(u_x, x)
-        u_xxx = diff(u_xx, x)
-        return cat(u, eval(self.input_feature), u_x, u_xx, u_xxx), u_t
+        derivatives = []
 
-    def get_selector_data(self, x, t):
         u = self.forward(x, t)
         u_t = diff(u, t)
-        u_x = diff(u, x)
-        u_xx = diff(u_x, x)
-        u_xxx = diff(u_xx, x)
-        return cat(t, x, u, u_x, u_xx, u_xxx), u_t
+        derivatives.append(u)
+        derivatives.append(eval(self.input_feature))
+
+        tmp = u
+        for i in range(1, self.highest_order+1):
+            tmp = diff(tmp, x); derivatives.append(tmp)
+        
+        return torch.cat(derivatives, dim=-1), u_t
+
+    # Another rearrangement of partial diff features [t, x, u, u_x, ...]
+    def get_selector_data(self, x, t):
+        derivatives = []
+
+        u = self.forward(x, t)
+        u_t = diff(u, t)
+        derivatives.append(t); derivatives.append(x)
+        derivatives.append(u)
+
+        tmp = u
+        for i in range(1, self.highest_order+1):
+            tmp = diff(tmp, x); derivatives.append(tmp)
+        
+        return torch.cat(derivatives, dim=-1), u_t
     
     def neural_net_scale(self, inp):
         return -1.0 + 2.0*(inp-self.lb)/(self.ub-self.lb)
