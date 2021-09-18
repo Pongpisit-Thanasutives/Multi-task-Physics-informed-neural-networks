@@ -39,7 +39,7 @@ class ParametricSolver(nn.Module):
 
         derivatives.append(u)
         if self.input_feature == 'x': derivatives.append(x)
-        elif self.input_feature == 't' derivatives.append(t)
+        elif self.input_feature == 't': derivatives.append(t)
         else: print("Invalid self.input_feature")
 
         tmp = u
