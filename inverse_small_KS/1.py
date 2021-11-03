@@ -187,7 +187,6 @@ model.load_state_dict(parameters)
 pinn = RobustPINN(model=model, loss_fn=mod, index2features=feature_names, scale=True, lb=lb, ub=ub, pretrained=True)
 
 pinn = load_weights(pinn, "./saved_path_inverse_small_KS/noisy2_final_finetuned_doublebetarpca_pinn_5000.pth")
-# pinn = load_weights(pinn, "tmp_f1.pth")
 
 def closure():
     if torch.is_grad_enabled():
