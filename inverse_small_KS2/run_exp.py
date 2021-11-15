@@ -141,10 +141,13 @@ class RobustPINN(nn.Module):
         
         self.callable_loss_fn = loss_fn
         self.init_parameters = [nn.Parameter(torch.tensor(x.item())) for x in loss_fn.parameters()]
-        print("Initial parameters", self.init_parameters)
-        self.param0 = self.init_parameters[0]
-        self.param1 = self.init_parameters[1]
+
+        # Be careful of the indexing you're using here. Need more systematic way of dealing with the parameters.
+        self.param0 = self.init_parameters[1]
+        self.param1 = self.init_parameters[0]
         self.param2 = self.init_parameters[2]
+        print("Please check here.")
+        print("Initial parameters", (self.param0, self.param1, self.param2))
         del self.callable_loss_fn, self.init_parameters
         
         self.index2features = index2features; self.feature2index = {}
