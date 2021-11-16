@@ -32,13 +32,7 @@ import sympytorch
 
 from pde_diff import *
 
-
-# In[2]:
-
-
 include_N_res = False
-
-# DATA_PATH = '../deephpms_data/KS.mat'
 DATA_PATH = '../PDE_FIND_experimental_datasets/kuramoto_sivishinky.mat'
 X, T, Exact = space_time_grid(data_path=DATA_PATH, real_solution=True)
 X_star, u_star = get_trainable_data(X, T, Exact)
@@ -55,7 +49,7 @@ X_u_train = X_star[idx, :]
 u_train = u_star[idx,:]
 
 noise_intensity = 0.01
-noisy_xt = False; noisy_labels = False
+noisy_xt = True; noisy_labels = True
 if noisy_xt: X_u_train = perturb(X_u_train, noise_intensity); print("Noisy (x, t)")
 else: print("Clean (x, t)")
 if noisy_labels: u_train = perturb(u_train, noise_intensity); print("Noisy labels")
@@ -112,7 +106,7 @@ feature_names=('uf', 'u_x', 'u_xx', 'u_xxxx'); feature2index = {}
 # ''' 
 
 program = '''
--1.006815*u_xx-1.005177*u_xxxx-0.995524*uf*u_x
+-0.912049*u_xx-0.909050*u_xxxx-0.951584*uf*u_x
 '''
 
 pde_expr, variables = build_exp(program); print(pde_expr, variables)
@@ -143,10 +137,10 @@ class RobustPINN(nn.Module):
         self.init_parameters = [nn.Parameter(torch.tensor(x.item())) for x in loss_fn.parameters()]
 
         # Be careful of the indexing you're using here. Need more systematic way of dealing with the parameters.
-        self.param0 = self.init_parameters[1]
-        self.param1 = self.init_parameters[0]
+        self.param0 = self.init_parameters[0]
+        self.param1 = self.init_parameters[1]
         self.param2 = self.init_parameters[2]
-        print("Please check here.")
+        print("Please check the following parameters.")
         print("Initial parameters", (self.param0, self.param1, self.param2))
         del self.callable_loss_fn, self.init_parameters
         
@@ -235,7 +229,7 @@ class RobustPINN(nn.Module):
 # In[5]:
 
 
-noiseless_mode = False
+noiseless_mode = True
 model = TorchMLP(dimensions=[2, 50, 50, 50 ,50, 50, 1], activation_function=nn.Tanh, bn=nn.LayerNorm, dropout=None)
 
 # Pretrained model
@@ -251,7 +245,7 @@ model.load_state_dict(parameters)
 pinn = RobustPINN(model=model, loss_fn=mod, 
                   index2features=feature_names, scale=True, lb=lb, ub=ub, 
                   pretrained=True, noiseless_mode=noiseless_mode)
-pinn = load_weights(pinn, "./new_saved_path/KS_rudy_pretrained_pinn_2ndrun.pth")
+pinn = load_weights(pinn, "./new_saved_path/KS_rudy_noisy2_pretrained_pinn.pth")
 
 # assigning the prefered loss_fn
 model = pinn.model
@@ -318,10 +312,6 @@ derivatives = torch.cat(derivatives, dim=1)
 derivatives = derivatives.detach().numpy()
 u_t = u_t.detach().numpy()
 
-
-# In[10]:
-
-
 feature_names = ["uf", "u_x", "u_xx", "u_xxxx"]
 
 X_input = derivatives
@@ -346,10 +336,6 @@ _, u_train_fft, u_train_PSD = fft1d_denoise(u_train, c=-5, return_real=True)
 
 x_fft, x_PSD = x_fft.detach(), x_PSD.detach()
 t_fft, t_PSD = t_fft.detach(), t_PSD.detach()
-
-
-# In[15]:
-
 
 def closure():
     if torch.is_grad_enabled():
@@ -383,16 +369,6 @@ def mtl_closure():
         
     return sum(losses)
 
-
-# In[16]:
-
-
-# pinn.loss(X_u_train, (x_fft, x_PSD, t_fft, t_PSD), u_train, (u_train_fft, u_train_PSD), update_network_params=True, update_pde_params=True)
-
-
-# In[17]:
-
-
 epochs1, epochs2 = 200, 20
 # TODO: Save best state dict and training for more epochs.
 optimizer1 = MADGRAD(pinn.parameters(), lr=1e-5, momentum=0.9)
@@ -420,4 +396,4 @@ print(pred_params)
 errs = 100*np.abs(np.array(pred_params)+1)
 print(errs.mean(), errs.std())
 
-save(pinn, "./new_saved_path/KS_rudy_final_finetuned_dft_pinn.pth")
+save(pinn, "./new_saved_path/KS_rudy_noisy2_final_finetuned_no_dft_pinn_2ndrun.pth")
