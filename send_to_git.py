@@ -11,7 +11,7 @@ print("Done some cleanings")
 unwanted_files = ['.DS_store', '.virtual_documents', '.ipynb_checkpoints', '__pycache__', 'catboost_info', 'lightning_logs']
 print("List of tmp files:", unwanted_files)
 
-command = input()
+command = input().strip()
 if command.lower() == 'print': func = print
 elif command.lower() == 'del': func = shutil.rmtree
 
