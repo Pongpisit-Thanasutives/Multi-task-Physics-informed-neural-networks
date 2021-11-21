@@ -211,6 +211,12 @@ def perturb(a_array, intensity=0.01, noise_type="normal", overwrite=True):
     if overwrite: return a_array + noise
     else: return noise
 
+# This function assumes that each dimension (variable) is independent from each other.
+def perturb2d(a_array, intensity):
+    for i in range(a_array.shape[1]):
+        a_array[:, i:i+1] = perturb(a_array[:, i:i+1], intensity=intensity)
+    return a_array
+
 def sampling_unit_circle(N):
     points = []
     for _ in range(N):
