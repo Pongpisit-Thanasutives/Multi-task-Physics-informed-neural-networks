@@ -403,10 +403,6 @@ for i in range(epochs1):
         errs = np.abs(npar([100*(np.abs(e1.real)+1j*np.abs(e1.imag))[0], 200*(np.abs(e2.real)+1j*np.abs(e2.imag))[0]]))
         print(errs.mean(), errs.std())
 
-
-# In[14]:
-
-
 optimizer2 = torch.optim.LBFGS(pinn.parameters(), lr=1e-1, max_iter=300, max_eval=int(300*1.25), history_size=300, line_search_fn='strong_wolfe')
 print('2nd Phase optimization using LBFGS')
 for i in range(epochs2):
@@ -436,34 +432,4 @@ e2 = p2-0.5j
 errs = np.abs(npar([100*(np.abs(e1.real)+1j*np.abs(e1.imag))[0], 200*(np.abs(e2.real)+1j*np.abs(e2.imag))[0]]))
 print(errs.mean(), errs.std())
 
-
-# In[16]:
-
-
 save(pinn, "noisy_161x512_dft_pinn.pth")
-
-
-# #### Sanity check
-
-# In[ ]:
-
-
-# from pde_diff import TrainSTRidge, FiniteDiff, print_pde
-
-
-# In[ ]:
-
-
-# gd, u_t = pinn.grads_dict(X_train[:, 0:1], X_train[:, 1:2])
-# uf = cplx2tensor(gd['X0']).detach().numpy()
-# u_xx = gd['X1'].detach().numpy()
-# V = gd['X2'].detach().numpy()
-# diffs = np.hstack((uf*V, u_xx))
-
-
-# In[ ]:
-
-
-# w = TrainSTRidge(diffs, to_numpy(u_t), 1e-6, d_tol=5)
-# print("PDE derived using STRidge")
-# print_pde(w, mod.terms)
