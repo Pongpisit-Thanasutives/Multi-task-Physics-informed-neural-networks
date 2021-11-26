@@ -787,6 +787,7 @@ class FFTTh(nn.Module):
         self.mini = minmax[0]
         self.maxi = minmax[1]
         # self.func = lambda x:(torch.exp(-F.relu(x)))
+        # self.func can return a negative value
         self.func = func
 
     def forward(self, PSD):

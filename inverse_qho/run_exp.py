@@ -34,12 +34,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, Ridge
 from pde_diff import TrainSTRidge, FiniteDiff, print_pde
 from RegscorePy.bic import bic
-
 from madgrad import MADGRAD
-
-
-# In[2]:
-
 
 # torch device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -61,15 +56,7 @@ potential = np.vstack([0.5*np.power(x,2).reshape((1,spatial_dim)) for _ in range
 X, T = np.meshgrid(x, t)
 Exact = data['usol'][:tlimit, :xlimit]
 
-
-# In[3]:
-
-
 def fn(e): return e.flatten()[:, None]
-
-
-# In[4]:
-
 
 Exact_u = np.real(Exact)
 Exact_v = np.imag(Exact)
@@ -98,16 +85,16 @@ V = potential[idx, :]
 
 # adding noise
 noise_intensity = 0.01/np.sqrt(2)
-noisy_xt = False; noisy_labels = True
+noisy_xt = True; noisy_labels = True
 if noisy_labels:
     u_train = perturb(u_train, noise_intensity)
     v_train = perturb(v_train, noise_intensity)
     h_train = u_train+1j*v_train
-    # h_train = 
     print("Noisy labels")
 else: print("Clean labels")
 if noisy_xt:
-    X_train = perturb2d(X_train, noise_intensity)
+    X_train = perturb(X_train, noise_intensity)
+    # X_train = perturb2d(X_train, noise_intensity)
     print("Noisy (x, t)")
 else: print("Clean X_train")
 
@@ -122,12 +109,7 @@ V = to_tensor(V, False).to(device)
 
 feature_names = ['hf', 'h_xx', 'V']
 
-
 # #### Denoising using DFT
-
-# In[5]:
-
-
 noise_x, x_fft, x_PSD = fft1d_denoise(to_tensor(X_train[:, 0:1]), c=-0.05, return_real=True)
 noise_x = X_train[:, 0:1] - noise_x
 noise_t, t_fft, t_PSD = fft1d_denoise(to_tensor(X_train[:, 1:2]), c=-0.05, return_real=True)
@@ -138,10 +120,6 @@ h_train_S, h_train_fft, h_train_PSD = fft1d_denoise(h_train, c=-0.05, return_rea
 h_train_S = h_train - h_train_S
 
 del noise_x, noise_t
-
-
-# In[6]:
-
 
 # 1st stage results
 # clean all
@@ -215,12 +193,9 @@ class PDEExpression(nn.Module):
 
 mod = PDEExpression(["hf*V", "h_xx"], cns, False)
 
-
-# In[9]:
-
-
+# init_cs should be > 0 if you are using lambda x:(torch.exp(-F.relu(x))).
 class ComplexPINN(nn.Module):
-    def __init__(self, model, loss_fn, index2features, scale=False, lb=None, ub=None, init_cs=(-0.05, -0.05), init_betas=(0.0, 0.0)):
+    def __init__(self, model, loss_fn, index2features, scale=False, lb=None, ub=None, init_cs=(-0.01, -0.01), init_betas=(0.0, 0.0)):
         super(ComplexPINN, self).__init__()
         self.model = model
         
@@ -233,8 +208,10 @@ class ComplexPINN(nn.Module):
         self.param1_imag = nn.Parameter(torch.FloatTensor([self.initial_param1.imag]))
         
         global N
-        self.in_fft_nn = FFTTh(c=init_cs[0], func=lambda x: (torch.exp(-F.relu(x))))
-        self.out_fft_nn = FFTTh(c=init_cs[1], func=lambda x: (torch.exp(-F.relu(x))))
+        # self.in_fft_nn = FFTTh(c=init_cs[0], func=lambda x: (torch.exp(-F.relu(x))))
+        # self.out_fft_nn = FFTTh(c=init_cs[1], func=lambda x: (torch.exp(-F.relu(x))))
+        self.in_fft_nn = FFTTh(c=init_cs[0], func=lambda x: x) 
+        self.out_fft_nn = FFTTh(c=init_cs[1], func=lambda x: x) 
         # Beta-Robust PCA
         self.inp_rpca = RobustPCANN(beta=init_betas[0], is_beta_trainable=True, inp_dims=2, hidden_dims=32)
         self.out_rpca = RobustPCANN(beta=init_betas[1], is_beta_trainable=True, inp_dims=2, hidden_dims=32)
@@ -295,7 +272,6 @@ class ComplexPINN(nn.Module):
         u_t = complex_diff(uf, t)
         
         ### PDE Loss calculation ###
-        # Without calling grad
         derivatives = {}
         derivatives['X0'] = uf
         derivatives['X1'] = complex_diff(complex_diff(uf, x), x)
@@ -338,7 +314,7 @@ complex_model = torch.nn.Sequential(
 
 
 # Pretrained model
-semisup_model_state_dict = cpu_load("./new_saved_path/clean_all_161x512_pretrained_semisup_model.pth")
+semisup_model_state_dict = cpu_load("./new_saved_path/noisy2_pretrained_semisup_model.pth")
 parameters = OrderedDict()
 
 # Filter only the parts that I care about renaming (to be similar to what defined in TorchMLP).
@@ -349,7 +325,7 @@ for p in semisup_model_state_dict:
 complex_model.load_state_dict(parameters)
 
 pinn = ComplexPINN(model=complex_model, loss_fn=mod, index2features=feature_names, scale=True, lb=lb, ub=ub)
-# pinn = load_weights(pinn, "./new_saved_path/clean_all_161x512_no_dft_pinn.pth")
+# pinn = load_weights(pinn, "./new_saved_path/....pth")
 
 denoise = True
 if denoise: print("Denoising mode on")
@@ -359,7 +335,7 @@ pure_imag = (mode == 0)
 update_pde_params = True
 
 def mtl_closure():
-    global X_train, h_train, update_pde_params, pure_imag
+    global X_train, h_train, update_pde_params, pure_imag, denoise
     if torch.is_grad_enabled(): optimizer1.zero_grad(set_to_none=True)
     losses = pinn.loss(X_train, (x_fft, x_PSD, t_fft, t_PSD), 
                        h_train, (h_train_fft, h_train_PSD), 
@@ -369,7 +345,7 @@ def mtl_closure():
     return l
 
 def closure():
-    global X_train, h_train, update_pde_params, pure_imag
+    global X_train, h_train, update_pde_params, pure_imag, denoise
     if torch.is_grad_enabled(): optimizer2.zero_grad(set_to_none=True)
     losses =pinn.loss(X_train, (x_fft, x_PSD, t_fft, t_PSD), 
                       h_train, (h_train_fft, h_train_PSD), 
@@ -377,10 +353,6 @@ def closure():
     l = sum(losses)
     if l.requires_grad: l.backward(retain_graph=True)
     return l
-
-
-# In[13]:
-
 
 if pure_imag: epochs1, epochs2 = 30, 0
 else: epochs1, epochs2 = 30, 20
@@ -403,7 +375,11 @@ for i in range(epochs1):
         errs = np.abs(npar([100*(np.abs(e1.real)+1j*np.abs(e1.imag))[0], 200*(np.abs(e2.real)+1j*np.abs(e2.imag))[0]]))
         print(errs.mean(), errs.std())
 
-optimizer2 = torch.optim.LBFGS(pinn.parameters(), lr=1e-1, max_iter=300, max_eval=int(300*1.25), history_size=300, line_search_fn='strong_wolfe')
+denoise = True
+if denoise: print("Denoising mode on")
+else: print("Denoising mode off")
+
+optimizer2 = torch.optim.LBFGS(pinn.parameters(), lr=1e-1, max_iter=500, max_eval=int(500*1.25), history_size=300, line_search_fn='strong_wolfe')
 print('2nd Phase optimization using LBFGS')
 for i in range(epochs2):
     optimizer2.step(closure)
@@ -419,10 +395,6 @@ for i in range(epochs2):
         errs = np.abs(npar([100*(np.abs(e1.real)+1j*np.abs(e1.imag))[0], 200*(np.abs(e2.real)+1j*np.abs(e2.imag))[0]]))
         print(errs.mean(), errs.std())
 
-
-# In[15]:
-
-
 p1 = torch.complex(pinn.param0_real, pinn.param0_imag).detach().numpy()
 p2 = torch.complex(pinn.param1_real, pinn.param1_imag).detach().numpy()
 print(p1)
@@ -432,4 +404,4 @@ e2 = p2-0.5j
 errs = np.abs(npar([100*(np.abs(e1.real)+1j*np.abs(e1.imag))[0], 200*(np.abs(e2.real)+1j*np.abs(e2.imag))[0]]))
 print(errs.mean(), errs.std())
 
-save(pinn, "noisy_161x512_dft_pinn.pth")
+save(pinn, "noisy2_161x512_dft_pinn.pth")
