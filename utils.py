@@ -458,11 +458,12 @@ def kl_normal(p, q):
     target_distribution = torch.distributions.Normal(q.mean(), q.std())
     return torch.distributions.kl_divergence(input_distribution, target_distribution).mean().item()
 
-# Only for real signal
 def percent_error(sig, ground):
-    sig = sig.flatten()
-    ground = ground.flatten()
-    return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(ground, 1)
+    ct = type(1j)
+    sig = npar(sig).flatten()
+    ground = npar(ground).flatten()
+    if type(sig) == (type(ground) == ct): return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(np.abs(ground), 1)
+    else: return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(ground, 1)
 
 def distance_loss(inputs, targets, distance_function=torch_wasserstein_loss):
      total_loss = 0.0
