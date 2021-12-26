@@ -465,6 +465,9 @@ def percent_error(sig, ground):
     if type(sig) == (type(ground) == ct): return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(np.abs(ground), 1)
     else: return 100*linalg.norm(np.abs(sig-ground), 1)/linalg.norm(ground, 1)
 
+def relative_l2_error(sig, ground):
+    return linalg.norm((sig-ground), 2)/linalg.norm(ground, 2)
+
 def distance_loss(inputs, targets, distance_function=torch_wasserstein_loss):
      total_loss = 0.0
      assert inputs.shape == targets.shape
