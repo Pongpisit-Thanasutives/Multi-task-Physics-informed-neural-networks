@@ -1,3 +1,5 @@
+# Originally from https://github.com/snagcliffs/PDE-FIND
+# Modified by Pongpisit Thanasutives for "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery" paper
 import numpy as np
 from numpy import linalg as LA
 import scipy.sparse as sparse
@@ -5,6 +7,17 @@ from scipy.sparse import csc_matrix
 from scipy.sparse import dia_matrix
 import itertools
 import operator
+try: from stlsq import stlsq, recursive_lstsq
+except: pass
+
+# Difference to the original implementation by Samuel Rudy.  2016
+# Particularly for STRidge utilized in "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery"
+def conditional_number(mat):
+    cond = np.linalg.cond(mat)
+    for i in range(1, 21):
+        cond = cond / (10**i)
+        if cond < 1: return cond*10
+    return cond*10
 
 """
 A few functions used in PDE-FIND
@@ -12,7 +25,6 @@ A few functions used in PDE-FIND
 Samuel Rudy.  2016
 
 """
-
 
 ##################################################################################
 ##################################################################################
@@ -406,7 +418,7 @@ def print_pde(w, rhs_description, ut = 'u_t'):
 ##################################################################################
 ##################################################################################
 
-def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0.8, print_best_tol = False):
+def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0.8, print_best_tol = False, print_eq=True, threshold=None, recursive=False, norm_type=2, use_sindy_model=False, feature_names=None, max_feature=None, seed=0):
     """
     This function trains a predictor using STRidge.
 
@@ -416,9 +428,13 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
     Please note published article has typo.  Loss function used here for model selection evaluates fidelity using 2-norm,
     not squared 2-norm.
     """
+    if max_feature is not None:
+        print(f"Considering the first {max_feature} features.")
+        R = R[:, :max_feature]
+        feature_names = feature_names[:max_feature]
 
     # Split data into 80% training and 20% test, then search for the best tolderance.
-    np.random.seed(0) # for consistancy
+    np.random.seed(seed=seed)
     n,_ = R.shape
     train = np.random.choice(n, int(n*split), replace = False)
     test = [i for i in np.arange(n) if i not in train]
@@ -431,7 +447,12 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
     # Set up the initial tolerance and l0 penalty
     d_tol = float(d_tol)
     tol = d_tol
-    if l0_penalty == None: l0_penalty = 0.001*np.linalg.cond(R)
+    if l0_penalty == None: 
+        l0_penalty = 0.001*np.linalg.cond(R)
+    else:
+        # Difference to the original implementation by Samuel Rudy.  2016
+        # Particularly for STRidge utilized in "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery"
+        l0_penalty = l0_penalty*conditional_number(R)
 
     # Get the standard least squares estimator
     w = np.zeros((D,1))
@@ -460,7 +481,36 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
 
     if print_best_tol: print("Optimal tolerance:", tol_best)
 
-    return w_best
+    ### Thresholding the found weights ###
+    new_w_best = w_best
+    if threshold is not None:
+        if recursive:
+            new_w_best = recursive_lstsq(R, Ut, new_w_best, threshold, norm_type=2)
+        else:
+            my_norm = np.linalg.norm(w_best, norm_type, axis=1)
+            good_idxs = np.where(my_norm > threshold)[0]
+            new_w_best = np.zeros(w_best.shape) + np.zeros(w_best.shape)*1j
+            new_w_best[good_idxs] = np.linalg.lstsq(R[:, good_idxs], Ut, rcond=-1)[0]
+    if not use_sindy_model:
+        if feature_names is not None:
+            if print_eq: 
+                print("Returning the regression coefficients...")
+                print_pde(new_w_best, feature_names)
+        return new_w_best
+    else:
+        fnames = []
+        good_idxs = np.where(np.linalg.norm(w_best, norm_type, axis=1)>0.0)[0].tolist()
+        if feature_names is None:
+            fnames = None
+        else: 
+            for e in good_idxs:
+                fnames.append(feature_names[e])
+        sindy_model = stlsq(R[:, np.linalg.norm(w_best, norm_type, axis=1)>0.0], Ut, threshold=threshold, feature_names=fnames)
+        if print_eq: 
+            print("Returning the SINDy model...")
+            if fnames is not None: 
+                print_pde(sindy_model.coefficients().T, fnames)
+        return sindy_model
 
 def Lasso(X0, Y, lam, w = np.array([0]), maxit = 100, normalize = 2):
     """
