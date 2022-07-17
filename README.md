@@ -22,12 +22,12 @@ if you find this repo useful, please consider citing this!
 
 ## Citation
 ```
-@article{thanasutives2021adversarial,
-      title={Adversarial Multi-task Learning Enhanced Physics-informed Neural Networks for Solving Partial Differential Equations}, 
-      author={Pongpisit Thanasutives and Masayuki Numao and Ken-ichi Fukui},
-      year={2021},
-      eprint={2104.14320},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{thanasutives2021adversarial,
+  title={Adversarial multi-task learning enhanced physics-informed neural networks for solving partial differential equations},
+  author={Thanasutives, Pongpisit and Numao, Masayuki and Fukui, Ken-ichi},
+  booktitle={2021 International Joint Conference on Neural Networks (IJCNN)},
+  pages={1--9},
+  year={2021},
+  organization={IEEE}
 }
 ```

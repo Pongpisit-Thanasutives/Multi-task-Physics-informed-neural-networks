@@ -1,5 +1,3 @@
-# Originally from https://github.com/snagcliffs/PDE-FIND
-# Modified by Pongpisit Thanasutives for "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery" paper
 import numpy as np
 from numpy import linalg as LA
 import scipy.sparse as sparse
@@ -9,9 +7,8 @@ import itertools
 import operator
 try: from stlsq import stlsq, recursive_lstsq
 except: pass
+from sigfig import round
 
-# Difference to the original implementation by Samuel Rudy.  2016
-# Particularly for STRidge utilized in "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery"
 def conditional_number(mat):
     cond = np.linalg.cond(mat)
     for i in range(1, 21):
@@ -19,6 +16,23 @@ def conditional_number(mat):
         if cond < 1: return cond*10
     return cond*10
 
+def first_sig(cond, tol=100):
+    tol = int(tol)+1
+    if cond > 1:
+        for i in range(1, tol):
+            cond_less = cond / (10**i)
+            if cond_less < 1: return cond_less*10
+        return cond_less
+    else:
+        for i in range(1, tol):
+            cond_more = cond * (10**i)
+            if cond_more > 1: return cond_more
+        return cond_more
+
+def conditional_number_significance(mat, tol=100):
+    cond = np.linalg.cond(mat)
+    return first_sig(cond, tol=tol)
+        
 """
 A few functions used in PDE-FIND
 
@@ -418,7 +432,7 @@ def print_pde(w, rhs_description, ut = 'u_t'):
 ##################################################################################
 ##################################################################################
 
-def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0.8, print_best_tol = False, print_eq=True, threshold=None, recursive=False, norm_type=2, use_sindy_model=False, feature_names=None, max_feature=None, seed=0):
+def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = None, normalize = 2, split = 0.8, print_best_tol = False, print_eq=True, threshold=None, recursive=False, norm_type=2, use_sindy_model=False, feature_names=None, max_feature=None, cond_num_sig=False, seed=0):
     """
     This function trains a predictor using STRidge.
 
@@ -450,9 +464,10 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
     if l0_penalty == None: 
         l0_penalty = 0.001*np.linalg.cond(R)
     else:
-        # Difference to the original implementation by Samuel Rudy.  2016
-        # Particularly for STRidge utilized in "Noise-aware Physics-informed Machine Learning for Robust PDE Discovery"
-        l0_penalty = l0_penalty*conditional_number(R)
+        if not cond_num_sig:
+            l0_penalty = l0_penalty*conditional_number(R)
+            print(f"Use l0_penalty = {int(l0_penalty/(lam*conditional_number_significance(R)))}lam if cond_num_sig = True")
+        else: l0_penalty = l0_penalty*conditional_number_significance(R)
 
     # Get the standard least squares estimator
     w = np.zeros((D,1))
@@ -490,7 +505,7 @@ def TrainSTRidge(R, Ut, lam, d_tol, maxit = 25, STR_iters = 10, l0_penalty = Non
             my_norm = np.linalg.norm(w_best, norm_type, axis=1)
             good_idxs = np.where(my_norm > threshold)[0]
             new_w_best = np.zeros(w_best.shape) + np.zeros(w_best.shape)*1j
-            new_w_best[good_idxs] = np.linalg.lstsq(R[:, good_idxs], Ut, rcond=-1)[0]
+            new_w_best[good_idxs] = np.linalg.lstsq(R[:, good_idxs], Ut, rcond=None)[0]
     if not use_sindy_model:
         if feature_names is not None:
             if print_eq: 
