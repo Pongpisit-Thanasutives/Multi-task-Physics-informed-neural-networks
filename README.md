@@ -1,6 +1,6 @@
 # Multi-task-Physics-informed-neural-networks
 
-The concept of multi-task physics-informed neural networks is firstly proposed in https://arxiv.org/abs/2104.14320. Please visit [this repository](https://github.com/Pongpisit-Thanasutives/Physics-Informed-Neural-Networks-Multitask-Learning) for the implementation.
+The concept of multi-task physics-informed neural networks was first proposed in https://arxiv.org/abs/2104.14320. Please visit [this repository](https://github.com/Pongpisit-Thanasutives/Physics-Informed-Neural-Networks-Multitask-Learning) for the implementation.
 
 ----- Research codebase -----  
 The current directory corresponds to the Burgers' PDE discovery.
