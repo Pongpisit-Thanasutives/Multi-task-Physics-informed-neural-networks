@@ -23,6 +23,14 @@ if you find this repo useful, please consider citing this!
 
 ## Citation
 ```
+@article{thanasutives2022noise,
+  title={Noise-aware Physics-informed Machine Learning for Robust PDE Discovery},
+  author={Thanasutives, Pongpisit and Morita, Takashi and Numao, Masayuki and Fukui, Ken-ichi},
+  journal={arXiv preprint arXiv:2206.12901},
+  year={2022}
+}
+```
+```
 @inproceedings{thanasutives2021adversarial,
   title={Adversarial multi-task learning enhanced physics-informed neural networks for solving partial differential equations},
   author={Thanasutives, Pongpisit and Numao, Masayuki and Fukui, Ken-ichi},
